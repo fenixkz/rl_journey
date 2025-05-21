@@ -127,8 +127,8 @@ class D3QN:
         elif model_type == 'CNN':
             # CNND3QN expects obs_space to be the shape tuple (e.g., (C, H, W))
             # It internally uses obs_space[0] for channels.
-            self.online_model = CNND3QN(self.env.observation_space, action_dim_for_model).to(self.device)
-            self.target_model = CNND3QN(self.env.observation_space, action_dim_for_model).to(self.device)
+            self.online_model = CNND3QN(self.env.observation_space.shape, action_dim_for_model).to(self.device)
+            self.target_model = CNND3QN(self.env.observation_space.shape, action_dim_for_model).to(self.device)
         else:
             raise ValueError("Invalid model type. Choose 'FC' or 'CNN'.")
         # Copy the weights from the online model to the target model
