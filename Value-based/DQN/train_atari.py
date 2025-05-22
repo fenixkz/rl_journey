@@ -11,7 +11,6 @@ ENV_NAME = "ALE/Breakout-v5"
 name = ENV_NAME.split('/')[-1]
 
 env = gym.make(ENV_NAME)
-env = FireResetEnv(env)
 env = AtariPreprocessing(
     env,
     noop_max=30,
