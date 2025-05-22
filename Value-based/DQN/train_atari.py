@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3.common.atari_wrappers import FireResetEnv
 import ale_py
-
+from gymnasium.wrappers import FrameStack
 
 
 # ENV_NAME = "ALE/Pong-v5"
@@ -21,7 +21,7 @@ env = gym.wrappers.AtariPreprocessing(
     screen_size=84,
     grayscale_obs=True
 )
-env = gym.wrappers.FrameStackObservation(env, stack_size=4)
+env = FrameStack(env, num_stack=4)
 
 print(f"Observation space: {env.observation_space.shape}")
 print(f"Action space: {env.action_space}")
