@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ale_py
 from gymnasium.wrappers import AtariPreprocessing
-
+from gymnasium.wrappers import FrameStack
 
 ENV_NAME = "ALE/Pong-v5"
 # ENV_NAME = "ALE/Breakout-v5"
@@ -20,7 +20,7 @@ env = AtariPreprocessing(
     scale_obs=False,
     terminal_on_life_loss=True,
 )
-env = gym.wrappers.FrameStackObservation(env, stack_size=4)
+env = gym.wrappers.FrameStack(env, num_stack=4)
 
 print(f"Observation space: {env.observation_space.shape}")
 print(f"Action space: {env.action_space}")
