@@ -2,9 +2,8 @@ from D3QN import D3QN
 import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
-from stable_baselines3.common.atari_wrappers import FireResetEnv
 import ale_py
-from gymnasium.wrappers import FrameStack
+from gymnasium.wrappers import AtariPreprocessing, FrameStack
 
 
 # ENV_NAME = "ALE/Pong-v5"
@@ -13,13 +12,15 @@ name = ENV_NAME.split('/')[-1]
 
 env = gym.make(ENV_NAME)
 env = FireResetEnv(env)
-env = gym.wrappers.AtariPreprocessing(
+env = AtariPreprocessing(
     env,
-    noop_max=0,
-    frame_skip=1,
-    terminal_on_life_loss=True,
+    noop_max=30,
+    frame_skip=4, 
     screen_size=84,
-    grayscale_obs=True
+    grayscale_obs=True,
+    scale_obs=False,
+    terminal_on_life_loss=True,
+    fire_on_reset=True  
 )
 env = FrameStack(env, num_stack=4)
 
