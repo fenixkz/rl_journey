@@ -1,6 +1,4 @@
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from base.DQNBase import DQNAgent
 import gymnasium as gym
 import numpy as np
@@ -9,7 +7,7 @@ import torch
 from typing import List
 from collections import deque
 
-class DQN(DQNAgent):
+class DDQN(DQNAgent):
 
     def __init__(self,
                  env: gym.Env,
@@ -52,16 +50,20 @@ class DQN(DQNAgent):
         
         # 5. Calculate TD-target
         with torch.no_grad(): # Target calculations should not affect gradients, this is our target
-            # --- DQN Update Rule ---
+            # --- DDQN Update Rule ---
             
-            # 1. Use target model to find the maximum Q-value of all next states in the batch
-            next_q_values = self.target_model(next_states)  # Shape: [batch_size, action_space.n]
-            next_max_q = torch.max(next_q_values, dim=1).values # Shape: [batch_size, 1]
+            # 1. Use online model to find the indeces of the best action in the next states
+            online_next_q = self.online_model(next_states)  # Shape: [batch_size, action_space.n]
+            next_best_actions = torch.argmax(online_next_q, dim = 1) # Shape: [batch_size]
+            
+            # 2. Evaluate Q-values for the next states using target network and pick Q-values according to the indexes of next_best_action
+            target_new_q: torch.Tensor = self.target_model(next_states) # Shape: [batch_size, action_space.n]
+            target_q = target_new_q.gather(1, next_best_actions.unsqueeze(-1)).squeeze(-1) # Shape: [batch_size]
 
             # 2. Calculate TD target
-            # Target = reward + gamma * max_a Q_target(s', a) * (1 - done)
+            # Target = reward + gamma * Q_target(s', argmax(Q_online(s'))) * (1 - done)
             # Multiply by (1 - done) so target is just 'r' if next_state is terminal
-            td_target = rewards + self.gamma * next_max_q * (1 - dones)
+            td_target = rewards + self.gamma * target_q * (1 - dones)
         
         # 6. Calculate MSE loss
         loss: torch.Tensor = (td_target - actual_q_values) ** 2
@@ -119,4 +121,3 @@ class DQN(DQNAgent):
             if len(rewards_log) == mean_n_episodes:
                 mean_rewards.append(np.mean(rewards_log))
                 std_rewards.append(np.std(rewards_log))
-            

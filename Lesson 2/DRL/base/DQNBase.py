@@ -190,16 +190,14 @@ class DQNAgent(ABC):
         if self.epsilon > self.min_epsilon:
             self.epsilon *= self.epsilon_decay
 
-    def save_model(self, env_name):
-        save_path = f"results/{env_name}"
+    def save_model(self, save_path: str):
         os.makedirs(save_path, exist_ok=True)
         online_model_path = os.path.join(save_path, "online_model.pth")
         target_model_path = os.path.join(save_path, "target_model.pth")
         torch.save(self.online_model.state_dict(), online_model_path)
         torch.save(self.target_model.state_dict(), target_model_path)
     
-    def load_model(self, env_name):
-        load_path = f"results/{env_name}"
+    def load_model(self, load_path: str):
         os.makedirs(load_path, exist_ok=True)
         online_model_path = os.path.join(load_path, "online_model.pth")
         target_model_path = os.path.join(load_path, "target_model.pth")

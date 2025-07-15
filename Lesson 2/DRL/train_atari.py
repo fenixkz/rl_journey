@@ -1,74 +1,105 @@
-from D3QN import D3QN
+import os
+import torch
 import gymnasium as gym
-import numpy as np
+from DQN.agent import DQN
 import matplotlib.pyplot as plt
 import ale_py
 from gymnasium.wrappers import AtariPreprocessing
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from utils.plot_utils import get_figure
 
 
-ENV_NAME = "ALE/Pong-v5"
-# ENV_NAME = "ALE/Breakout-v5"
+# Hyperparams
+# --------
+AGENT = "DQN"
+TOTAL_TIMESTEPS = int(10e6)    # Atari needs millions of steps. 10 million is a good target.
+LEARNING_STARTS = 50000        # Fill the buffer with 50k random steps before learning.
+BUFFER_SIZE = int(1e6)         # A large buffer of 1 million transitions.
+BATCH_SIZE = 32                # The standard batch size from the Nature paper.
+LR = 1e-4                      # A lower learning rate is crucial for stability.
+TARGET_UPDATE_FREQ = 10000     # Update the target network every 10,000 training steps.
+LEARNING_FREQ = 4              # Perform one learning update every 4 environment steps.
+
+# Epsilon decay over the first 1 million STEPS (not episodes)
+MIN_EPSILON = 0.1
+START_EPSILON = 1.0
+EPSILON_DECAY_STEPS = 1_000_000
+EPS_DECAY = (MIN_EPSILON / START_EPSILON) ** (1 / EPSILON_DECAY_STEPS)
+MEAN_N = 50 # Mean of rewards over these many episodes
+ENV_NAME = "ALE/Pong-v5" # "ALE/Breakout-v5"
+
 name = ENV_NAME.split('/')[-1]
 
-env = gym.make(ENV_NAME)
+env = gym.make(ENV_NAME, frameskip=1)
 env = AtariPreprocessing(
     env,
-    noop_max=0,
-    frame_skip=1, 
-    screen_size=84,
-    grayscale_obs=True,
-    scale_obs=False,
-    terminal_on_life_loss=True,
+    noop_max=30, # For more variation in the game
+    frame_skip=4, # The agent makes a move for next 4 frames, i.e. moves left for 4 frames to speed up training
+    screen_size=84, # Rescale original image to 84x84
+    grayscale_obs=True, # RGB to GrayScale
+    scale_obs=True, # Normalize the pixel values from [0-255] to [0-1]
+    terminal_on_life_loss=True, # Do not wait for all lifes to be wasted, end episode everytime the life is gone
 )
+env = gym.wrappers.RecordEpisodeStatistics(env) 
 env = gym.wrappers.FrameStackObservation(env, stack_size=4)
 
-print(f"Observation space: {env.observation_space.shape}")
-print(f"Action space: {env.action_space}")
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-agent = D3QN(
-    env = env,
-    name = name,
-    n_step_return=4,
-    learning_rate=1e-4,
-    gamma = 0.99,
-    epsilon = 1,
-    epsilon_decay=0.999,
-    epsilon_min = 0.1,
-    batch_size = 64,
-    buffer_size = int(1e6),
-    tau = 0.005,  # Soft update parameter (typical range: 0.001-0.01)
-    validation_period = 50,
-    model_type = 'CNN',
-    beta_start = 0.4,
-    beta_end = 1.0,
-    beta_annealing_steps=10000,
-    alpha=0.6
-)
+agent = DQN(
+    env=env,
+    hidden_space=512,
+    gamma=0.99,
+    epsilon=START_EPSILON,
+    epsilon_decay=EPS_DECAY,
+    min_epsilon=MIN_EPSILON,
+    device=device,
+    buffer_size=BUFFER_SIZE,
+    batch_size=BATCH_SIZE,
+    seed=24,
+    lr=LR,
+    target_update_freq=TARGET_UPDATE_FREQ,
+    learning_freq=LEARNING_FREQ,
+    )
 
-train_rewards, test_rewards = agent.train(n_episodes=100000)
+mean_n_episodes = 50
 
-# --- Plotting ---
-window_size = 50 # Use a larger window for smoother average
-# Define moving average function if not defined elsewhere
-def moving_avg(x, w):
-    return np.convolve(x, np.ones(w), 'valid') / w
+mean_rewards = []
+std_rewards = []
 
-if len(test_rewards) >= window_size:
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(range(window_size - 1, len(test_rewards)), moving_avg(test_rewards, window_size), label=f"{window_size}-ep moving avg reward")
-    plt.xlabel("Episodes")
-    plt.ylabel("Reward")
-    plt.title("Episode Rewards (Moving Average)")
-    plt.legend()
-    plt.grid(True)
+save_path = f"{AGENT}/results/{ENV_NAME}"
+os.makedirs(save_path, exist_ok=True)
 
+def save_progress_to_file():
+    """A non-interactive function to save model and plot to file."""
+    print("\nSaving model and plotting results to file...")
+    agent.save_model(save_path)
+    if mean_rewards and std_rewards:
+        fig = get_figure(mean_rewards, std_rewards, num_episodes=MEAN_N)
+        print("Generated the figure")
+        save_file_path = os.path.join(save_path, "rewards.jpg")
+        try:
+            fig.savefig(save_file_path)
+            print(f"Plot saved to {save_file_path}")
+        except Exception as e:
+            print(f"Could not save plot: {e}")
+        finally:
+            plt.close(fig)
 
-    plt.tight_layout()
+training_completed_successfully = False
+try:
+    agent.train(mean_rewards, std_rewards, max_steps=TOTAL_TIMESTEPS, mean_n_episodes=mean_n_episodes)
+    training_completed_successfully = True
+except KeyboardInterrupt:
+    print("\nTraining interrupted by user (Ctrl+C).")
+finally:
+    # This block will execute on normal completion, Ctrl+C, or a different error.
+    save_progress_to_file()
+
+# --- Display the Plot (Only on Normal Completion) ---
+if training_completed_successfully:
+    print("\nTraining completed successfully. Displaying final plot.")
+    # Re-create the figure from the final data and show it.
+    final_fig = get_figure(mean_rewards, std_rewards, num_episodes=MEAN_N)
     plt.show()
-else:
-    print("Not enough episodes to plot moving average.")
-
-env.close()
-
 
