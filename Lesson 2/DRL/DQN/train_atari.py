@@ -65,7 +65,7 @@ def save_progress_to_file():
     print("\nSaving model and plotting results to file...")
     agent.save_model(ENV_NAME)
     if mean_rewards and std_rewards:
-        fig = get_figure(mean_rewards, std_rewards, num_episodes=50)
+        fig = get_figure(mean_rewards, std_rewards, num_episodes=MEAN_N)
         print("Generated the figure")
         save_file_path = os.path.join(save_path, "rewards.jpg")
         try:
@@ -90,6 +90,6 @@ finally:
 if training_completed_successfully:
     print("\nTraining completed successfully. Displaying final plot.")
     # Re-create the figure from the final data and show it.
-    final_fig = get_figure(mean_rewards, std_rewards, num_episodes=50)
+    final_fig = get_figure(mean_rewards, std_rewards, num_episodes=MEAN_N)
     plt.show()
 
