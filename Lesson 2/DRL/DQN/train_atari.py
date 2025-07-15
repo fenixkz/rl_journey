@@ -21,7 +21,7 @@ ENV_NAME = "ALE/Pong-v5"
 # ENV_NAME = "ALE/Breakout-v5"
 name = ENV_NAME.split('/')[-1]
 
-env = gym.make(ENV_NAME)
+env = gym.make(ENV_NAME, frameskip=1)
 env = AtariPreprocessing(
     env,
     noop_max=30, # For more variation in the game
