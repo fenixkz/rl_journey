@@ -11,14 +11,14 @@ from gymnasium.wrappers import AtariPreprocessing
 
 # Hyperparams
 # --------
-MAX_EPISODES = int(1e6) # Total number of episodes to play
+MAX_STEPS = int(1e6) # Total number of steps to play
 MIN_EPSILON = 0.05 # 5% chance of random action
 START_EPSILON = 1.0 # 100% chance of random action
 EPSILON_DECAY_FRACTION = 0.60 # The fraction of total episodes over which to decay epsilon
-EPS_DECAY = (MIN_EPSILON / START_EPSILON) ** (1 / int(MAX_EPISODES * EPSILON_DECAY_FRACTION)) # A formula for decay to anneal epsilon from start to min epsilon in fraction of max episodes
+EPS_DECAY = (MIN_EPSILON / START_EPSILON) ** (1 / int(MAX_STEPS * EPSILON_DECAY_FRACTION)) # A formula for decay to anneal epsilon from start to min epsilon in fraction of max episodes
+MEAN_N = 50 # Mean of rewards over these many episodes
+ENV_NAME = "ALE/Pong-v5" # "ALE/Breakout-v5"
 
-ENV_NAME = "ALE/Pong-v5"
-# ENV_NAME = "ALE/Breakout-v5"
 name = ENV_NAME.split('/')[-1]
 
 env = gym.make(ENV_NAME, frameskip=1)
@@ -31,6 +31,7 @@ env = AtariPreprocessing(
     scale_obs=True, # Normalize the pixel values from [0-255] to [0-1]
     terminal_on_life_loss=True, # Do not wait for all lifes to be wasted, end episode everytime the life is gone
 )
+env = gym.wrappers.RecordEpisodeStatistics(env) 
 env = gym.wrappers.FrameStackObservation(env, stack_size=4)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -47,7 +48,8 @@ agent = DQN(
     batch_size=256,
     seed=24,
     lr=3e-4,
-    update_period=500,
+    target_update_freq=500,
+    learning_freq=4,
     )
 
 mean_n_episodes = 50
@@ -76,7 +78,7 @@ def save_progress_to_file():
 
 training_completed_successfully = False
 try:
-    agent.train(mean_rewards, std_rewards, max_episodes=MAX_EPISODES, mean_n_episodes=mean_n_episodes)
+    agent.train(mean_rewards, std_rewards, max_steps=MAX_STEPS, mean_n_episodes=mean_n_episodes)
     training_completed_successfully = True
 except KeyboardInterrupt:
     print("\nTraining interrupted by user (Ctrl+C).")

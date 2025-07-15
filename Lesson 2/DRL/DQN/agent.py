@@ -23,12 +23,15 @@ class DQN(DQNAgent):
                  batch_size: int = 256,
                  seed: int = 24,
                  lr: float = 3e-4,
-                 update_period: int = 500,
+                 target_update_freq: int = 500,
+                 learning_freq: int = 4,
+                 learning_starts: int = 50000,
                  ):
         
-        super().__init__(env, hidden_space, gamma, epsilon, epsilon_decay, min_epsilon, device, buffer_size, batch_size, seed)
+        super().__init__(env, hidden_space, gamma, epsilon, epsilon_decay, min_epsilon, device, buffer_size, batch_size, seed, learning_freq)
         self.optimizer = torch.optim.Adam(self.online_model.parameters(), lr=lr)
-        self.update_period = update_period
+        self.target_update_freq = target_update_freq
+        self.learning_starts = learning_starts
 
     def learn(self):
         # 1. Sample a batch of experience from replay buffer
@@ -72,41 +75,43 @@ class DQN(DQNAgent):
     def update_target_network(self):
         self.target_model.load_state_dict(self.online_model.state_dict())
 
-    def train(self, mean_rewards: List, std_rewards: List, max_episodes: int = 100000, mean_n_episodes: int = 50):
-        # To track performance of last N episodes
-        last_n_rewards = deque(maxlen=mean_n_episodes)
-
-        # TQDM for pretty output
-        pbar = tqdm(range(max_episodes), desc="Training", postfix={"mean_reward": 0, "eps": 1})
-
-        training_steps = 0
-        for e in pbar:
-            state, _ = self.env.reset(seed=self.seed)
-            done = False
-            total_reward = 0
-
-            while not done:
-                # Choose action
-                action = self.choose_action(state=state)
-                next_state, reward, terminated, truncated, _ = self.env.step(action=action)
-                done = terminated or truncated
-                total_reward += reward
-
-                self.memory.push(state, action, reward, next_state, done)
-
-                if len(self.memory) > self.batch_size:
-                    self.learn()
-                    # Update target network every M learning steps
-                    if (training_steps+1) % self.update_period == 0: self.update_target_network()
-                    training_steps += 1
-
-                state = next_state
-                
-            # Decay epsilon
+    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
+        
+        # To track performance of training rewards
+        rewards_log = deque(maxlen=mean_n_episodes)
+        
+        obs, _ = self.env.reset()
+        
+        pbar = tqdm(range(max_steps), desc="Training", postfix={"mean_reward": "N/A"})
+        for global_step in pbar:
+            action = self.choose_action(obs)
+            
+            # Decay epsilon based on steps
             self.decay_epsilon()
-            last_n_rewards.append(total_reward)
-            if len(last_n_rewards) == mean_n_episodes:
-                mean_rewards.append(np.mean(last_n_rewards))
-                std_rewards.append(np.std(last_n_rewards))
-                pbar.set_postfix(mean_reward=f"{np.mean(last_n_rewards):.2f}", eps = f"{self.epsilon:.3f}")
+
+            next_obs, reward, terminated, truncated, info = self.env.step(action)
+            done = terminated or truncated
+
+            self.memory.push(obs, action, reward, next_obs, done)
+            
+            obs = next_obs
+            
+            if done:
+                # Use the info dict from RecordEpisodeStatistics
+                if "episode" in info:
+                    rewards_log.append(info['episode']['r'])
+                obs, _ = self.env.reset()
+
+            # Only start learning after a certain number of steps have been collected
+            if global_step > self.learning_starts:
+                # To speed up training for Atari, do learning not at every step, but every L steps
+                if global_step % self.learning_freq == 0: self.learn()
+                # Update target network every `target_update_freq` steps
+                if global_step % self.target_update_freq == 0: self.update_target_network()
+
+            if len(rewards_log) > 0: pbar.set_postfix(mean_reward=f"{np.mean(rewards_log):.2f}", eps=f"{self.epsilon:.3f}")
+            
+            if len(rewards_log) == mean_n_episodes:
+                mean_rewards.append(np.mean(rewards_log))
+                std_rewards.append(np.std(rewards_log))
             

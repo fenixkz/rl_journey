@@ -135,7 +135,8 @@ class DQNAgent(ABC):
                  device: str = "cpu",
                  buffer_size: int = 100000,
                  batch_size: int = 256,
-                 seed: int = 24
+                 seed: int = 24,
+                 learning_freq: int = 4,
                  ):
         # Some hyperparameters
         self.env = env
@@ -147,6 +148,7 @@ class DQNAgent(ABC):
         self.min_epsilon = min_epsilon
         self.device = device
         self.batch_size = batch_size
+        self.learning_freq = learning_freq
 
         # 1. Classical examples, observation_space is a Box and shape is 1D
         if isinstance(self.observation_space, gym.spaces.Box) and len(self.observation_space.shape) == 1:
@@ -159,7 +161,7 @@ class DQNAgent(ABC):
                 raise ValueError(f"Detected non-discrete action space, this class works only with discrete action space problems!")
         # 2. Atari games, observation space is a Box and shape is 3D
         elif isinstance(self.observation_space, gym.spaces.Box) and len(self.observation_space.shape) == 3:
-            print(f"Detected a classic environment, observation space shape: {self.observation_space.shape}, using Convolutional Neural Network (CNN)")
+            print(f"Detected an Atari environment, observation space shape: {self.observation_space.shape}, using Convolutional Neural Network (CNN)")
             if isinstance(self.action_space, gym.spaces.Discrete):
                 print(f"Detected discrete action space, total number of actions: {self.action_space.n}")
                 self.online_model = CNNNetwork(self.observation_space.shape, self.action_space.n, hidden_space).to(device)
@@ -209,5 +211,5 @@ class DQNAgent(ABC):
         pass
 
     @abstractmethod
-    def train(self, mean_rewards: List, std_rewards: List, max_episodes: int = 100000, mean_n_episodes: int = 50):
+    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
         pass
