@@ -10,21 +10,24 @@ import matplotlib.pyplot as plt
 # --- Setup ---
 env_id = "LunarLander-v3"
 env = gym.make(env_id)
+env = gym.wrappers.RecordEpisodeStatistics(env) 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 agent = DQN(
     env=env,
-    hidden_space=128,
+    hidden_space=64,
     gamma=0.99,
-    epsilon=0.9,
-    epsilon_decay=.999,
+    epsilon=1,
+    epsilon_decay=0.999,
     min_epsilon=0.05,
     device=device,
     buffer_size=1e6,
     batch_size=256,
     seed=24,
     lr=3e-4,
-    update_period=500,
+    target_update_freq=500,
+    learning_freq=1,
+    learning_starts=0
     )
 
 mean_n_episodes = 50
@@ -53,7 +56,7 @@ def save_progress_to_file():
 
 training_completed_successfully = False
 try:
-    agent.train(mean_rewards, std_rewards, max_episodes=5000, mean_n_episodes=mean_n_episodes)
+    agent.train(mean_rewards, std_rewards, max_steps=100000, mean_n_episodes=mean_n_episodes)
     training_completed_successfully = True
 except KeyboardInterrupt:
     print("\nTraining interrupted by user (Ctrl+C).")
