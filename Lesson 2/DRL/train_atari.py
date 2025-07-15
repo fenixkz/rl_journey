@@ -48,7 +48,6 @@ START_EPSILON = 1.0
 EPSILON_DECAY_STEPS = 1_000_000
 EPS_DECAY = (MIN_EPSILON / START_EPSILON) ** (1 / EPSILON_DECAY_STEPS)
 MEAN_N = 50 # Mean of rewards over these many episodes
-ENV_NAME = "ALE/Pong-v5" # "ALE/Breakout-v5" ALE/SpaceInvaders-v5
 
 name = ENV_NAME.split('/')[-1]
 
