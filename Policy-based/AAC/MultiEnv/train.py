@@ -6,16 +6,57 @@ from agent import Agent
 import torch.optim as opt
 import matplotlib.pyplot as plt
 import os
-import sys
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(current_dir))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-from utils.multi_env import ENVIRONMENTS
 
-from tqdm import tqdm
 SEED = 24  # This number is used to ensure reproducibility, use any integer you like
 
+# Environment configurations with specific hyperparameters
+ENVIRONMENTS = {
+    'CartPole-v1': {
+        'max_episodes': 2000,
+        'solved_threshold': 195.0,  # Average reward over 100 episodes
+        'lr': 1e-3,
+        'gamma': 0.99,
+        'hidden_size': 64,
+        'num_layers': 1,  # Simple environment, single layer is enough
+        'agent_type': 'basic',
+        'description': 'Classic control - balance pole on cart'
+    },
+    'MountainCar-v0': {
+        'max_episodes': 3000,  # Harder environment, needs more episodes
+        'solved_threshold': -110.0,  # MountainCar has negative rewards
+        'lr': 1e-3,
+        'gamma': 0.99,
+        'hidden_size': 128,
+        'num_layers': 2,  # More complex dynamics
+        'agent_type': 'basic',
+        'description': 'Get car to top of mountain using momentum'
+    },
+    'LunarLander-v3': {
+        'max_episodes': 2000,
+        'solved_threshold': 200.0,
+        'lr': 5e-4,  # Lower learning rate for stability
+        'gamma': 0.99,
+        'hidden_size': 128,
+        'num_layers': 2,
+        'agent_type': 'dropout',  # Use dropout for regularization
+        'description': 'Land spacecraft safely on moon surface'
+    },
+    'Acrobot-v1': {
+        'max_episodes': 3000,
+        'solved_threshold': -100.0,
+        'lr': 1e-3,
+        'gamma': 0.99,
+        'hidden_size': 128,
+        'num_layers': 2,
+        'agent_type': 'basic',
+        'description': 'Swing up underactuated pendulum'
+    }
+}
+
+# Global hyperparameters
+NORMALIZE_RETURNS = False  # Set to False, True
+USE_ENTROPY = True         # Set to False, True
+ENTROPY_BETA = 0.01        # Coefficient for the entropy bonus
 
 def set_seed():
     """
@@ -35,26 +76,35 @@ def set_seed():
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-def create_agent(obs_space, action_space, device) -> torch.nn.Module:
+def create_agent(obs_space, action_space, config, device):
     """
     Create an agent based on the configuration
     
     Args:
         obs_space: Observation space size
         action_space: Action space size
+        config: Environment configuration
         device: Device to place the agent on
     
     Returns:
         agent: The created agent
     """
+    agent_type = config.get('agent_type', 'basic')
+    hidden_size = config['hidden_size']
+    num_layers = config.get('num_layers', 2)
     
-    agent = Agent(obs_space, action_space, hidden_size=64, dropout_rate=0.1)
+    if agent_type == 'basic':
+        agent = Agent(obs_space, action_space, hidden_size, num_layers)
+    elif agent_type == 'dropout':
+        agent = Agent(obs_space, action_space, hidden_size, num_layers, dropout_rate=0.2)
+    else:
+        raise ValueError(f"Unknown agent type: {agent_type}")
     
     return agent.to(device)
 
-def train_environment(env_name, config, verbose=True):
+def train_environment(env_name, config, normalize_returns=False, use_entropy=True, verbose=True):
     """
-    Train REINFORCE on a specific environment
+    Train AAC on a specific environment
     
     Args:
         env_name: Name of the gymnasium environment
@@ -80,98 +130,101 @@ def train_environment(env_name, config, verbose=True):
         print(f"Environment: {env_name}")
         print(f"Description: {config['description']}")
         print(f"Observation space: {env.observation_space.shape}, Action space: {env.action_space.n}")
+        print(f"Hyperparameters: lr={config['lr']}, gamma={config['gamma']}, hidden_size={config['hidden_size']}")
+        print(f"Agent type: {config.get('agent_type', 'basic')}, Layers: {config.get('num_layers', 2)}")
         print(f"Training for {config['max_episodes']} episodes, target: {config['solved_threshold']}")
         print("-" * 60)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     # Create agent with environment-specific configuration
-    agent = create_agent(env.observation_space.shape[0], env.action_space.n, device)
-    optimizer = opt.Adam(agent.parameters(), lr=3e-4)
+    agent = create_agent(env.observation_space.shape[0], env.action_space.n, config, device)
+    actor_optimizer = opt.Adam(agent.actor.parameters(), lr=3e-4)
+    critic_optimizer = opt.Adam(agent.critic.parameters(), lr=1e-2)
     env.action_space.seed(SEED)  # Set action space seed
 
     episode_rewards = []
     best_avg_reward = float('-inf')
     solved_episode = None
     
-    normalize_returns = config['use_normalization']
-    use_entropy = config['use_entropy']
-
-    # Create progress bar
-    pbar = tqdm(range(config['max_episodes']), desc=f"Training {env_name}", disable=not verbose)
-
-    for e in pbar:
-        state, _ = env.reset(seed=SEED+e)  # Reset with different seed for each episode
+    for e in range(config['max_episodes']):
+        state, info = env.reset(seed=SEED+e)
         done = False
-        
+        total_reward = 0
+
         # Data structures to store log probabilities, entropies, and rewards
         log_probs = []
         entropies = []
-        rewards = []
-
+        states = []
+        next_states = []
+        rewards = []  # Store rewards for the episode
+        dones = []  # Store done flags for the episode
         while not done:
-            # State is internally converted to a tensor by the agent
-            logits = agent(state) # Logits are the raw scores for each action, shape: (batch_size, action_space)
-            
-            # Apply softmax to get probabilities
-            probs = F.softmax(logits, dim = -1) # Convert logits to probabilities via softmax operator, shape: (batch_size, action_space)
-            
-            # Create a categorical distribution from the probabilities
-            # This distribution will be used to sample actions and compute log probabilities
-            action_dist = torch.distributions.Categorical(probs) # Categorical distribution for sampling actions, shape: (batch_size, action_space)
-            
-            # Sample an action from the distribution
-            # action_dist.sample() returns a tensor of shape (batch_size,) with the sampled actions
-            # We use item() to get the scalar value from the tensor
-            action = action_dist.sample() # Sample an action from the distribution, shape: (batch_size,)
-            # Apply the action to the environment
-            next_state, reward, terminated, truncated, _ = env.step(action.item()) # Use .item() to extract the integer from the tensor
+            # Note: states are converted to tensors and moved to the correct device internally in agent's methods
+            # Get probability distribution over actions
+            probs = agent.act(state) # probs shape: [1, action_space]
+
+            ## Sample an action
+            action_dist = torch.distributions.Categorical(probs)
+            action = action_dist.sample() # action shape: [1], single action sampled from the distribution
+
+            # Make a step in the environment
+            next_state, reward, terminated, truncated, _ = env.step(action.item()) # action.item() to get the scalar value from the tensor
             done = terminated or truncated
-            
-            if use_entropy:
-                # Use entropy to encourage exploration
-                # Entropy is calculated as sum of -p * log(p) for each action probability, but we can use the built-in method
-                entropies.append(action_dist.entropy()) # action_dist.entropy() has shape (batch_size,)
-            
-            # Store log probabilities and rewards
-            log_probs.append(action_dist.log_prob(action)) # We can also use built-in method to compute log probabilities 
-            rewards.append(reward) # Store the reward for this step
-            state = next_state # Transition to the next state
+            total_reward += reward
 
-        # Compute returns
-        returns = []
-        G = 0
-        for r in reversed(rewards):
-            # Use backward pass to compute returns for each step
-            G = r + 0.99 * G
-            returns.insert(0, G)
-        
-        # Convert to tensors
-        returns = torch.tensor(returns, dtype=torch.float32).to(device)
-        log_probs = torch.stack(log_probs).to(device)
-        
-        # Normalize returns if specified
-        # Normalization helps to stabilize the training by reducing the huge variation in returns
-        if normalize_returns:
-            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-        
-        # Compute the loss 
-        # The loss is the negative log probability of the actions taken, weighted by the returns
-        # This is the REINFORCE algorithm
-        # We want to maximize the expected return, so we minimize the negative log probability
-        loss = -(log_probs * returns).sum()
-        
-        if use_entropy:
-            entropies = torch.stack(entropies).to(device)
-            loss -= 0.01 * entropies.sum() # sum or mean? sum is more common in literature, but mean is also used
+            # Compute log probability of the action
+            log_prob = action_dist.log_prob(action) # log_prob shape: [1] (tensor)
+            # Compute the entropy of the action distribution
+            entropy = action_dist.entropy() # entropy shape: [1] (tensor)
 
+            states.append(state)  # Store the current state
+            next_states.append(next_state)  # Store the next state
+            rewards.append(reward)
+            dones.append(done)
+            log_probs.append(log_prob)
+            entropies.append(entropy)
+
+            state = next_state
+        # End of episode, store the total reward
         episode_rewards.append(sum(rewards))
         
-        # Backpropagation
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # Convert lists to tensors
+        rewards = torch.tensor(rewards, dtype=torch.float32, device=device).view(-1, 1)  # Convert rewards to tensor, shape: [n_steps, 1]
+        dones = torch.tensor(dones, dtype=torch.float32, device=device).view(-1, 1)   # Convert dones to tensor, shape: [n_steps, 1]
+        log_probs = torch.stack(log_probs).to(device)  # Stack log probabilities into a tensor, shape: [n_steps, 1]
+        entropies = torch.stack(entropies).to(device)  # Stack entropies into a tensor, shape: [n_steps, 1]
+        states = torch.tensor(np.array(states), dtype=torch.float32, device=device)  # Convert states to tensor, shape: [n_steps, state_dim]
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float32, device=device)  # Convert next states to tensor, shape: [n_steps, state_dim]
         
+        # Compute state values using the Critic network
+        v_s = agent.evaluate(states)  # Evaluate current state values, shape: [n_steps, 1]
+        
+        # Compute TD-target using the 1 step return
+        with torch.no_grad():
+            v_next = agent.evaluate(next_states)
+            # For terminal states, next value should be 0
+            v_next = v_next * (1 - dones)
+
+        td_target = rewards + config['gamma'] * v_next
+        advantage = td_target - v_s  # advantage shape: [N, 1] (tensor)
+        
+        # Compute losses
+        # Actor loss: -log_prob * Advantage.
+        # Detach advantage for actor loss
+        actor_loss = -(log_probs * advantage.detach()).mean() - ENTROPY_BETA*entropies.mean()
+        critic_loss = F.mse_loss(v_s, td_target.detach())  # MSE loss between predicted and target values, shape: scalar
+        
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        torch.nn.utils.clip_grad_norm_(agent.actor.parameters(), max_norm=0.5)
+        actor_optimizer.step()
+        
+        critic_optimizer.zero_grad()
+        critic_loss.backward()
+        torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), max_norm=0.5)
+        critic_optimizer.step()
+        total_loss = actor_loss.detach().item() + critic_loss.detach().item()  # Total loss is the sum of actor and critic losses
         # Check if environment is solved
         if len(episode_rewards) >= 100:
             avg_reward = np.mean(episode_rewards[-100:])
@@ -181,27 +234,23 @@ def train_environment(env_name, config, verbose=True):
             if avg_reward >= config['solved_threshold'] and solved_episode is None:
                 solved_episode = e
                 if verbose:
-                    pbar.write(f"🎉 Environment solved at episode {e}! Average reward: {avg_reward:.2f}")
+                    print(f"🎉 Environment solved at episode {e}! Average reward: {avg_reward:.2f}")
                     break  # Stop training if solved
         # Print progress
         if verbose and e % 200 == 0:
             recent_avg = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
-            pbar.set_postfix({
-                                'Loss': f"{loss.item():.3f}",
-                                'Reward': f"{sum(rewards):.1f}",
-                                'Avg(100)': f"{recent_avg:.1f}",
-                                'Best': f"{best_avg_reward:.1f}"
-                            })
+            print(f"Episode {e:4d}, Loss: {total_loss:8.3f}, Total reward: {rewards.sum().item():8.3f}, Avg(100): {recent_avg:8.3f}")
 
     env.close()
-    pbar.close()
+    
     return episode_rewards, agent
 
-def evaluate_performance(rewards, config):
+def evaluate_performance(env_name, rewards, config):
     """
     Evaluate if the agent has solved the environment
     
     Args:
+        env_name: Name of the environment
         rewards: List of episode rewards
         config: Environment configuration
     
@@ -252,12 +301,12 @@ def plot_single_environment(env_name, rewards, config, save_dir="figures"):
     
     # Enhanced title with agent info
     agent_info = f"{config.get('agent_type', 'basic')} ({config.get('num_layers', 2)} layers)"
-    plt.title(f"REINFORCE Performance on {env_name}\n{config['description']} | Agent: {agent_info}")
+    plt.title(f"AAC Performance on {env_name}\n{config['description']} | Agent: {agent_info}")
     plt.legend()
     plt.grid(True, alpha=0.3)
     
-    config_str = f"Norm={config['use_normalization']}_Ent={config['use_entropy']}"
-    filename = f"reinforce_{env_name.replace('-', '_').lower()}_{config_str}.png"
+    config_str = f"Norm={NORMALIZE_RETURNS}_Ent={USE_ENTROPY}_Enhanced"
+    filename = f"AAC_{env_name.replace('-', '_').lower()}_{config_str}.png"
     plt.savefig(os.path.join(save_dir, filename), dpi=300, bbox_inches='tight')
     plt.show()
 
@@ -309,7 +358,7 @@ def plot_multi_environment_results(results, save_dir="figures"):
         
         # Add agent type to title
         agent_info = f"{config.get('agent_type', 'basic')}"
-        ax.set_title(f"REINFORCE on {env_name}\n({agent_info})")
+        ax.set_title(f"AAC on {env_name}\n({agent_info})")
         ax.legend()
         ax.grid(True, alpha=0.3)
         
@@ -320,14 +369,14 @@ def plot_multi_environment_results(results, save_dir="figures"):
         axes[idx].set_visible(False)
     
     plt.tight_layout()
-    config_str = f"Norm={config['use_normalization']}_Ent={config['use_entropy']}_Enhanced"
-    plt.savefig(os.path.join(save_dir, f"reinforce_multi_environment_{config_str}.png"), 
+    config_str = f"Norm={NORMALIZE_RETURNS}_Ent={USE_ENTROPY}_Enhanced"
+    plt.savefig(os.path.join(save_dir, f"AAC_multi_environment_{config_str}.png"), 
                 dpi=300, bbox_inches='tight')
     plt.show()
 
-def train_all_environments():
+def train_all_environments(selected_envs=None):
     """
-    Train REINFORCE on all configured environments
+    Train AAC on all configured environments
     
     Args:
         selected_envs: List of environment names to train on. If None, train on all.
@@ -335,14 +384,20 @@ def train_all_environments():
     Returns:
         results: Dictionary containing training results for each environment
     """
+    if selected_envs is None:
+        selected_envs = list(ENVIRONMENTS.keys())
     
     results = {}
     
-    print("🚀 Starting Multi-Environment REINFORCE Training (Enhanced)")
-
+    print("🚀 Starting Multi-Environment AAC Training (Enhanced)")
+    print(f"Configuration: Normalize Returns = {NORMALIZE_RETURNS}, Use Entropy = {USE_ENTROPY}")
+    print(f"Entropy Beta = {ENTROPY_BETA}, Seed = {SEED}")
     print("=" * 80)
     
-    for env_name in ENVIRONMENTS.keys():
+    for env_name in selected_envs:
+        if env_name not in ENVIRONMENTS:
+            print(f"Warning: Environment {env_name} not in configuration. Skipping.")
+            continue
             
         config = ENVIRONMENTS[env_name]
         print(f"\n🎯 Training on {env_name}")
@@ -350,11 +405,13 @@ def train_all_environments():
         
         episode_rewards, trained_agent = train_environment(
             env_name, config, 
+            normalize_returns=NORMALIZE_RETURNS,
+            use_entropy=USE_ENTROPY
         )
         
         if episode_rewards is not None:
             # Evaluate performance
-            solved, final_avg, solve_episode = evaluate_performance(episode_rewards, config)
+            solved, final_avg, solve_episode = evaluate_performance(env_name, episode_rewards, config)
             
             results[env_name] = {
                 'rewards': episode_rewards,
@@ -401,6 +458,9 @@ def train_all_environments():
 if __name__ == "__main__":
     # Train on all environments
     results = train_all_environments()
+    
+    # Optional: Train on specific environments only
+    # results = train_all_environments(['CartPole-v1', 'MountainCar-v0'])
     
     print("\n🎉 Multi-environment training completed!")
     print("Check the 'figures' directory for visualization plots.")
