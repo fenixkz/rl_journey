@@ -2,20 +2,41 @@ import os
 import torch
 import gymnasium as gym
 from DQN.agent import DQN
+from DDQN.agent import DDQN
 import matplotlib.pyplot as plt
 import ale_py
 from gymnasium.wrappers import AtariPreprocessing
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from utils.plot_utils import get_figure
+import argparse
 
 
+parser = argparse.ArgumentParser(description="Train an RL agent on an Atari environment.")
+parser.add_argument('--env', type=str, default="Pong", help="Name of the Atari environment to train on.")
+parser.add_argument('--agent', type=str, default="DQN", choices=["DQN", "DDQN"], help="Agent to use for training.")
+args = parser.parse_args()
+
+if args.env == "Pong":
+    ENV_NAME = "ALE/Pong-v5"
+elif args.env == "Breakout":
+    ENV_NAME = "ALE/Breakout-v5"
+elif args.env == "SpaceInvaders":
+    ENV_NAME = "ALE/SpaceInvaders-v5"
+elif args.env == "Seaquest":
+    ENV_NAME = "ALE/Seaquest-v5"
+else:
+    raise ValueError("Unsupported env name")
+
+ENV_NAME = args.env
+AGENT = args.agent
+
+print(f"------------ Training {ENV_NAME} ---------------")
 # Hyperparams
 # --------
-AGENT = "DQN"
 TOTAL_TIMESTEPS = int(10e6)    # Atari needs millions of steps. 10 million is a good target.
 LEARNING_STARTS = 50000        # Fill the buffer with 50k random steps before learning.
-BUFFER_SIZE = int(1e6)         # A large buffer of 1 million transitions.
+BUFFER_SIZE = int(1e5)         # A large buffer of 1 million transitions.
 BATCH_SIZE = 32                # The standard batch size from the Nature paper.
 LR = 1e-4                      # A lower learning rate is crucial for stability.
 TARGET_UPDATE_FREQ = 10000     # Update the target network every 10,000 training steps.
@@ -27,7 +48,7 @@ START_EPSILON = 1.0
 EPSILON_DECAY_STEPS = 1_000_000
 EPS_DECAY = (MIN_EPSILON / START_EPSILON) ** (1 / EPSILON_DECAY_STEPS)
 MEAN_N = 50 # Mean of rewards over these many episodes
-ENV_NAME = "ALE/Pong-v5" # "ALE/Breakout-v5"
+ENV_NAME = "ALE/Pong-v5" # "ALE/Breakout-v5" ALE/SpaceInvaders-v5
 
 name = ENV_NAME.split('/')[-1]
 
