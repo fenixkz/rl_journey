@@ -28,7 +28,6 @@ elif args.env == "Seaquest":
 else:
     raise ValueError("Unsupported env name")
 
-ENV_NAME = args.env
 AGENT = args.agent
 
 print(f"------------ Training {ENV_NAME} ---------------")
