@@ -58,7 +58,7 @@ class DQNAgent(ABC):
             print(f"Detected an Atari environment, observation space shape: {self.observation_space.shape}, using Convolutional Neural Network (CNN)")
             self.online_model = CNNNetwork(self.observation_space.shape, self.action_space.n, hidden_space).to(device)
             self.target_model = CNNNetwork(self.observation_space.shape, self.action_space.n, hidden_space).to(device)
-
+        self.update_target_network()
         # Initialize a replay buffer 
         self.memory = ReplayBuffer(size=int(buffer_size))
         # Set seed for reproduction of results

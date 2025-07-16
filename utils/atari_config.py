@@ -17,7 +17,8 @@ DEFAULT_ALGO_PARAMS = {
     "lr": 2.5e-4, # Nature paper
     "target_update_freq": 10000, # Nature paper
     "learning_freq": 4, # Nature paper
-    "epsilon_decay_steps": int(1e6) # Nature paper
+    "epsilon_decay_steps": int(1e6), # Nature paper
+    "hidden_dim": 512, 
 }
 
 ATARI_CONFIGS = {

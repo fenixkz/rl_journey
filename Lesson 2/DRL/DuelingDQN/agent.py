@@ -77,24 +77,39 @@ class D3QN(DQNAgent):
     A Dueling Double DQN algorithm.
     '''
     def __init__(self, *args, **kwargs ):
-        self.target_update_freq = kwargs.pop("target_update_freq", 1000)
-        self.learning_starts = kwargs.pop("learning_starts", 50000)
-        self.learning_freq = kwargs.pop("learning_freq", 1)
-        self.solved_reward = kwargs.pop("solved_reward", 10000)
-        super().__init__(*args, **kwargs)
+        # It's better practice to call the parent constructor first.
+        # We must pop the D3QN-specific kwargs first, because the parent's
+        # __init__ method doesn't accept them and would raise a TypeError.
+        target_update_freq = kwargs.pop("target_update_freq", 1000)
+        learning_starts = kwargs.pop("learning_starts", 50000)
+        learning_freq = kwargs.pop("learning_freq", 1)
+        solved_reward = kwargs.pop("solved_reward", 10000)
 
-        # Replace online and target models with updated versions
+        super().__init__(*args, **kwargs)
+        
+        # Now, set the attributes specific to this agent
+        self.target_update_freq = target_update_freq
+        self.learning_starts = learning_starts
+        self.learning_freq = learning_freq
+        self.solved_reward = solved_reward
+
+        # Replace the parent's models with the Dueling architecture
         print(f"Replacing policies to match Dueling-DQN implementation")
         if not self.is_atari:
             print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
-            self.online_model = FCD3QN(self.observation_space.shape[0], self.action_space.n, kwargs.get("hidden_space", 64)).to(self.device)
-            self.target_model = FCD3QN(self.observation_space.shape[0], self.action_space.n, kwargs.get("hidden_space", 64)).to(self.device)
+            hidden_space = kwargs.get("hidden_space", 64)
+            self.online_model = FCD3QN(self.observation_space.shape[0], self.action_space.n, hidden_space).to(self.device)
+            self.target_model = FCD3QN(self.observation_space.shape[0], self.action_space.n, hidden_space).to(self.device)
         else:
             print(f"Detected an Atari environment, observation space shape: {self.observation_space.shape}, using Convolutional Neural Network (CNN)")
-            self.online_model = CNND3QN(self.observation_space.shape, self.action_space.n, kwargs.get("hidden_space", 512)).to(self.device)
-            self.target_model = CNND3QN(self.observation_space.shape, self.action_space.n, kwargs.get("hidden_space", 512)).to(self.device)
+            hidden_space = kwargs.get("hidden_space", 512)
+            self.online_model = CNND3QN(self.observation_space.shape, self.action_space.n, hidden_space).to(self.device)
+            self.target_model = CNND3QN(self.observation_space.shape, self.action_space.n, hidden_space).to(self.device)
+
         # Re-nitialize optimizer, use same set of params as in Nature paper
         self.optimizer = torch.optim.RMSprop(self.online_model.parameters(), lr=self.lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
+        # Sync the networks
+        self.update_target_network()
 
     def learn(self):
         # 1. Sample a batch of experience from replay buffer
@@ -129,8 +144,6 @@ class D3QN(DQNAgent):
             # Target = reward + gamma * Q_target(s', argmax(Q_online(s'))) * (1 - done)
             # Multiply by (1 - done) so target is just 'r' if next_state is terminal
             td_target = rewards + self.gamma * target_q * (1 - dones)
-            # Clip the TD-target as written in the Nature paper
-            td_target = torch.clamp(td_target, min = -1, max = 1)
 
         # 6. Calculate loss using Huber Loss (Smooth L1 Loss)
         # This correctly implements the TD-error clipping from the Nature paper.
@@ -166,8 +179,9 @@ class D3QN(DQNAgent):
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
+            clipped_reward = self.clip_reward(reward) if self.is_atari else reward
             # Store experience in the buffer
-            self.memory.push(obs, action, self.clip_reward(reward), next_obs, done)
+            self.memory.push(obs, action, clipped_reward, next_obs, done)
             
             # Set next observation to the current one
             obs = next_obs

@@ -15,11 +15,21 @@ class DQN(DQNAgent):
     A vanilla DQN algorithm.
     '''
     def __init__(self, *args, **kwargs ):
-        self.target_update_freq = kwargs.pop("target_update_freq", 1000)
-        self.learning_starts = kwargs.pop("learning_starts", 50000)
-        self.learning_freq = kwargs.pop("learning_freq", 1)
-        self.solved_reward = kwargs.pop("solved_reward", 10000)
+        # It's better practice to call the parent constructor first.
+        # We must pop the D3QN-specific kwargs first, because the parent's
+        # __init__ method doesn't accept them and would raise a TypeError.
+        target_update_freq = kwargs.pop("target_update_freq", 1000)
+        learning_starts = kwargs.pop("learning_starts", 50000)
+        learning_freq = kwargs.pop("learning_freq", 1)
+        solved_reward = kwargs.pop("solved_reward", 10000)
+
         super().__init__(*args, **kwargs)
+        
+        # Now, set the attributes specific to this agent
+        self.target_update_freq = target_update_freq
+        self.learning_starts = learning_starts
+        self.learning_freq = learning_freq
+        self.solved_reward = solved_reward
 
     def learn(self):
         # 1. Sample a batch of experience from replay buffer
@@ -82,8 +92,9 @@ class DQN(DQNAgent):
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
+            clipped_reward = self.clip_reward(reward) if self.is_atari else reward
             # Store experience in the buffer
-            self.memory.push(obs, action, self.clip_reward(reward), next_obs, done)
+            self.memory.push(obs, action, clipped_reward, next_obs, done)
             
             # Set next observation to the current one
             obs = next_obs
