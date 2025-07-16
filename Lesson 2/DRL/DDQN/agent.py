@@ -43,7 +43,7 @@ class DDQN(DQNAgent):
         with torch.no_grad(): # Target calculations should not affect gradients, this is our target
             # --- DDQN Update Rule ---
             
-            # 1. Use online model to find the indeces of the best action in the next states
+            # 1. Use online model to find the indexes of the best action in the next states
             online_next_q = self.online_model(next_states)  # Shape: [batch_size, action_space.n]
             next_best_actions = torch.argmax(online_next_q, dim = 1) # Shape: [batch_size]
             

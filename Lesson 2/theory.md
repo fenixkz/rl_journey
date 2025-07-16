@@ -713,7 +713,7 @@ $$
 
 ---
 
-### Why This Matters and When EV-SARSA is Better
+### Why This Matters and When EV-SARSA can be Better
 
 **Why is being on-policy important?**  
 Being on-policy provides stability. The updates are grounded in the reality of what the agent is actually doing. This is crucial in situations where you need to evaluate the safety or performance of the current policy, not just a hypothetical optimal one.
@@ -914,23 +914,14 @@ This shows how the TD error at $t=1$ updates both $Q(B,2)$ (current) and $Q(A,1)
 Using the eligibility traces can improve the original SARSA algorithm resulting in SARSA($\lambda$). The pseudocode for that algorithm:
 
 1. Initialize $Q(s,a)$ arbitrarily (e.g., to 0) for all $s,a$.
-
 2. Choose $\alpha, \lambda, \gamma$.
-
 3. Repeat for each episode:
-
     1. Initialize $E(s,a)=0$ for all $s,a$.
-
-    2. Choose action $a_t$ from initial state $s_t$ using current policy (e.g., $\epsilon$-greedy).
-
+    2. Get initial $s_t$ from the environment and use current policy (e.g., $\epsilon$-greedy) to get $a_t$
     3. Loop for each step of episode (while $s_{t+1}$ is not terminal): 
-
         1. Take action $a_t$, observe reward $r_{t+1}$ and next state $s_{t+1}$. 
-
         2. Calculate the TD error. 
-
             - If $s_{t+1}$ is terminal: $\delta = R - Q(S,A)$. 
-
             - Else ($s_{t+1}$ is not terminal): 
                 - Choose $a_{t+1}$ from $s_{t+1}$ using policy derived from Q (e.g., $\epsilon$-greedy). 
                 - $\delta \leftarrow R + \gamma Q(s_{t+1},a_{t+1}) - Q(s_t,a_t)$. 
@@ -980,7 +971,7 @@ Thanks to the advancements in Deep Learning (DL), people started looking at the 
 
 **A quick important note.**
 
-At first glance it might be intuitive to represent this problem as a classification problem. Given state $s$ we want to get an index of the most profitable action $a$, so the network outputs the probability distribution over actions. 
+At first glance it might be intuitive to represent this problem as a classification problem. Given state $s$ we want to get an index of the most profitable action $a$, so the network outputs the probability distribution over actions, i.e. let the neural network be our policy. 
 
 However, to use any TD-learning update rules we need to estimate state or state-action values. If the network chooses the best action, how can we estimate the Q-values?
 
@@ -1011,7 +1002,7 @@ $$
 
 This loss is a Euclidean distance between two points in the state-action space. First point is our current estimate of Q-value for some $(s, a)$ coordinates. And the second point is the update estimate using newly generated data sample. By trying to minimize this distance we are moving our estimate towards the new updated estimate. And by doing it iteratively, we will converge towards the optimal Q-values.
 
-So the intuition behind Deep Q-Learning is exactly the same as in vanilla Q-learning. We play the episode, at each time step we collect `<s, a, r, s'>` samples. We calculate the new estimate for $Q(s,a)$ using newly experienced data. Our update Q-value is then compared with what the neural network has estimated via L2 loss. Then this loss is backpropagated to update the weights, such that in the future the network would improve its estimate towards the updated version. And this is repeated many times.
+So the intuition behind Deep Q-Learning is exactly the same as in vanilla Q-learning. We play the episode, at each time step we collect `<s, a, r, s'>` samples. We calculate the new estimate for $Q(s,a)$ using newly experienced data. Our updated Q-value is then compared with what the neural network has estimated via L2 loss. Then this loss is backpropagated to update the weights, such that in the future the network would improve its estimate towards the updated version. And this is repeated many times.
 
 So, this is the first approach and you know what? It did not work! I know I know; so many words and it does not work in the end. Let's think why?
 
