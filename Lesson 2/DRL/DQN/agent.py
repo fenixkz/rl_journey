@@ -10,28 +10,17 @@ from typing import List
 from collections import deque
 
 class DQN(DQNAgent):
-
-    def __init__(self,
-                 env: gym.Env,
-                 hidden_space: int = 128,
-                 gamma: float = 0.99,
-                 epsilon: float = 1,
-                 epsilon_decay: float = 0.9995,
-                 min_epsilon: float = 0.05,
-                 device: str = "cpu",
-                 buffer_size: int = 100000,
-                 batch_size: int = 256,
-                 seed: int = 24,
-                 lr: float = 3e-4,
-                 target_update_freq: int = 500,
-                 learning_freq: int = 4,
-                 learning_starts: int = 50000,
-                 ):
-        
-        super().__init__(env, hidden_space, gamma, epsilon, epsilon_decay, min_epsilon, device, buffer_size, batch_size, seed, learning_freq)
-        self.optimizer = torch.optim.Adam(self.online_model.parameters(), lr=lr)
-        self.target_update_freq = target_update_freq
-        self.learning_starts = learning_starts
+    '''
+    A vanilla DQN algorithm.
+    '''
+    def __init__(self, *args, **kwargs ):
+        self.target_update_freq = kwargs.pop("target_update_freq", 1000)
+        self.learning_starts = kwargs.pop("learning_starts", 50000)
+        self.learning_freq = kwargs.pop("learning_freq", 1)
+        self.solved_reward = kwargs.pop("solved_reward", 10000)
+        self.lr = kwargs.pop("lr", 1e-3)
+        super().__init__(*args, **kwargs)
+        self.optimizer = torch.optim.Adam(self.online_model.parameters(), lr=self.lr)
 
     def learn(self):
         # 1. Sample a batch of experience from replay buffer
@@ -81,7 +70,8 @@ class DQN(DQNAgent):
         rewards_log = deque(maxlen=mean_n_episodes)
         
         obs, _ = self.env.reset()
-        
+        if self.is_atari: obs = self.auto_fire()
+
         pbar = tqdm(range(max_steps), desc="Training", postfix={"mean_reward": "N/A"})
 
         for global_step in pbar:
@@ -103,9 +93,22 @@ class DQN(DQNAgent):
             
             if done: # If done, reset the episode
                 # Use the info dict from RecordEpisodeStatistics
-                if "episode" in info:
-                    rewards_log.append(info['episode']['r'])
+                if "episode" in info: rewards_log.append(info['episode']['r'])
+                # Calculate mean reward of last N episodes
+                mean_reward = np.mean(rewards_log)
+                
+                # Add the mean reward to provided lists
+                if len(rewards_log) == mean_n_episodes:
+                    mean_rewards.append(mean_reward)
+                    std_rewards.append(np.std(rewards_log))
+                # Check if the env has been solved
+                if mean_reward > self.solved_reward:
+                    print(f"Environment has been solved! Mean reward obtained: {mean_reward}, reward considered as solved: {self.solved_reward}")  
+                    break  
+                # Reset the env
                 obs, _ = self.env.reset()
+                # If it's an atari, then auto press fire button
+                if self.is_atari: obs = self.auto_fire()
 
             # Only start learning after a certain number of steps have been collected
             if global_step > self.learning_starts:
@@ -113,10 +116,9 @@ class DQN(DQNAgent):
                 if global_step % self.learning_freq == 0: self.learn()
                 # Update target network every `target_update_freq` steps
                 if global_step % self.target_update_freq == 0: self.update_target_network()
-
-            if len(rewards_log) > 0: pbar.set_postfix(mean_reward=f"{np.mean(rewards_log):.2f}", eps=f"{self.epsilon:.3f}")
             
-            if len(rewards_log) == mean_n_episodes:
-                mean_rewards.append(np.mean(rewards_log))
-                std_rewards.append(np.std(rewards_log))
+            # Update the progress bar with new information
+            if len(rewards_log) > 0: pbar.set_postfix(mean_reward=f"{mean_reward:.2f}", eps=f"{self.epsilon:.3f}")
+            
+            
             
