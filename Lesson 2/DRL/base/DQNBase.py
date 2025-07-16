@@ -77,8 +77,13 @@ class DQNAgent(ABC):
             return action
 
     def decay_epsilon(self):
+        '''
+        Nature paper decay epsilon linear instead of exponentially
+        '''
         if self.epsilon > self.min_epsilon:
-            self.epsilon *= self.epsilon_decay
+            self.epsilon -= self.epsilon_decay
+        else:
+            self.epsilon = self.min_epsilon
 
     def clip_reward(self, reward):
         """Implements the DeepMind reward clipping."""

@@ -90,7 +90,7 @@ def main(args):
         min_epsilon = 0.1
         start_epsilon = 1.0
         epsilon_decay_steps = env_config.get("epsilon_decay_steps", int(1e6))  
-        eps_decay = (min_epsilon / start_epsilon) ** (1 / epsilon_decay_steps)
+        eps_decay = (start_epsilon - min_epsilon) / epsilon_decay_steps
         
     else: 
         # For Box2D envs, frameskip arg does not exist, so we have to separate 
@@ -106,7 +106,8 @@ def main(args):
         min_epsilon = 0.1                                    # at least 10% of actions are random 
         start_epsilon = 1.0                                  # start with full exploration
         epsilon_decay_steps = int(total_timesteps * 0.6)     # decay to min epsilon in 60% of total steps
-        eps_decay = (min_epsilon / start_epsilon) ** (1 / epsilon_decay_steps)
+        eps_decay = (start_epsilon - min_epsilon) / epsilon_decay_steps
+        
     # To record statistics of each episode in info 
     env = gym.wrappers.RecordEpisodeStatistics(env) 
     
