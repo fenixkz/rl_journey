@@ -9,7 +9,7 @@ from gymnasium.wrappers import AtariPreprocessing
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from utils.plot_utils import get_figure
-from utils.atari_config import ATARI_CONFIGS
+from utils.atari_config import ATARI_CONFIGS, DEFAULT_ALGO_PARAMS
 from utils.classic_config import CLASSIC_ENV_CONFIG
 import argparse
 from rich import print as pprint
@@ -70,19 +70,25 @@ def main(args):
                                 terminal_on_life_loss=True, # Restart the episode on the first life loss, instead of waiting for all lifes losses
                             )
         env = gym.wrappers.FrameStackObservation(env, stack_size=4) # Stack last 4 frames as the observation to encode the velocity information
+
+        # For any missing algorithm param, add the default value
+        for key, default_value in DEFAULT_ALGO_PARAMS.items():
+            if key not in env_config:
+                env_config[key] = default_value
+
         # Atari specific hyperparams
-        total_timesteps = int(10e6)    # atari needs millions of steps. 10 million is a good target.
-        learning_starts = 50000        # fill the buffer with 50k random steps before learning.
-        buffer_size = int(1e5)         # a large buffer of 1 million transitions.
-        batch_size = 32                # the standard batch size from the nature paper.
-        lr = 1e-4                      # a lower learning rate is crucial for stability.
-        target_update_freq = 10000     # update the target network every 10,000 training steps.
-        learning_freq = 4              # perform one learning update every 4 environment steps.
+        total_timesteps = int(10e6)                                         # atari needs millions of steps. 10 million is a good target.
+        learning_starts = 50000                                             # fill the buffer with 50k random steps before learning.
+        buffer_size = int(1e5)                                              # a large buffer of 1 million transitions.
+        batch_size = 32                                                     # the standard batch size from the nature paper.
+        lr = env_config.get("lr", 1e-4)                                     # a lower learning rate is crucial for stability.
+        target_update_freq = env_config.get("target_update_freq", 5000)     # update the target network every 10,000 training steps.
+        learning_freq = 4                                                   # perform one learning update every 4 environment steps.
         
         # epsilon decay over the first 1 million steps 
         min_epsilon = 0.1
         start_epsilon = 1.0
-        epsilon_decay_steps = 1_000_000
+        epsilon_decay_steps = env_config.get("epsilon_decay_steps", int(1e6))  
         eps_decay = (min_epsilon / start_epsilon) ** (1 / epsilon_decay_steps)
         
     else: 
@@ -107,24 +113,49 @@ def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"   # which device to use for train
     mean_n = 50                                               # mean of rewards over these many episodes
 
-    agent = DQN(
-        env=env,
-        is_atari=is_atari,
-        hidden_space=env_config.get('hidden_dim', 512),
-        gamma=env_config.get('gamma', 0.99),
-        epsilon=start_epsilon,
-        epsilon_decay=eps_decay,
-        min_epsilon=min_epsilon,
-        device=device,
-        buffer_size=buffer_size,
-        batch_size=batch_size,
-        seed=24,
-        lr=lr,
-        target_update_freq=target_update_freq,
-        learning_freq=learning_freq,
-        learning_starts = learning_starts,
-        solved_reward = env_config.get("solved_reward", 10000)
-        )
+    if agent_name == "DQN":
+        pprint(f"[bold yellow] Using DQN agent")
+        agent = DQN(
+            env=env,
+            is_atari=is_atari,
+            hidden_space=env_config.get('hidden_dim', 512),
+            gamma=env_config.get('gamma', 0.99),
+            epsilon=start_epsilon,
+            epsilon_decay=eps_decay,
+            min_epsilon=min_epsilon,
+            device=device,
+            buffer_size=buffer_size,
+            batch_size=batch_size,
+            seed=24,
+            lr=lr,
+            target_update_freq=target_update_freq,
+            learning_freq=learning_freq,
+            learning_starts = learning_starts,
+            solved_reward = env_config.get("solved_reward", 10000)
+            )
+    elif agent_name == "DDQN":
+        pprint(f"[bold yellow] Using Double-DQN agent")
+        agent = DDQN(
+            env=env,
+            is_atari=is_atari,
+            hidden_space=env_config.get('hidden_dim', 512),
+            gamma=env_config.get('gamma', 0.99),
+            epsilon=start_epsilon,
+            epsilon_decay=eps_decay,
+            min_epsilon=min_epsilon,
+            device=device,
+            buffer_size=buffer_size,
+            batch_size=batch_size,
+            seed=24,
+            lr=lr,
+            target_update_freq=target_update_freq,
+            learning_freq=learning_freq,
+            learning_starts = learning_starts,
+            solved_reward = env_config.get("solved_reward", 10000)
+            )
+    else:
+        raise ValueError("Unsupport agent type")
+    
     
     mean_rewards = []
     std_rewards = []
@@ -148,7 +179,7 @@ def main(args):
             finally:
                 plt.close(fig)
 
-    pprint(f"----------------------------- :rocket: [bold red] Training {env_id} [/bold red] :rocket: -----------------------------")
+    pprint(f"----------------------------- :rocket: :rocket: :rocket: [bold red] Training {env_id} [/bold red] :rocket: :rocket: :rocket: -----------------------------")
 
     training_completed_successfully = False
     try:

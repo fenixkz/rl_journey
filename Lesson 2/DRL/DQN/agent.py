@@ -69,7 +69,7 @@ class DQN(DQNAgent):
         # To track performance of training rewards
         rewards_log = deque(maxlen=mean_n_episodes)
         
-        obs, _ = self.env.reset()
+        obs, _ = self.env.reset(seed=self.seed)
         if self.is_atari: obs = self.auto_fire()
 
         pbar = tqdm(range(max_steps), desc="Training", postfix={"mean_reward": "N/A"})
@@ -106,7 +106,7 @@ class DQN(DQNAgent):
                     print(f"Environment has been solved! Mean reward obtained: {mean_reward}, reward considered as solved: {self.solved_reward}")  
                     break  
                 # Reset the env
-                obs, _ = self.env.reset()
+                obs, _ = self.env.reset(seed=self.seed+global_step)
                 # If it's an atari, then auto press fire button
                 if self.is_atari: obs = self.auto_fire()
 
@@ -120,5 +120,5 @@ class DQN(DQNAgent):
             # Update the progress bar with new information
             if len(rewards_log) > 0: pbar.set_postfix(mean_reward=f"{mean_reward:.2f}", eps=f"{self.epsilon:.3f}")
             
-            
+        pbar.close()
             
