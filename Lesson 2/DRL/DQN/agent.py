@@ -18,9 +18,7 @@ class DQN(DQNAgent):
         self.learning_starts = kwargs.pop("learning_starts", 50000)
         self.learning_freq = kwargs.pop("learning_freq", 1)
         self.solved_reward = kwargs.pop("solved_reward", 10000)
-        self.lr = kwargs.pop("lr", 1e-3)
         super().__init__(*args, **kwargs)
-        self.optimizer = torch.optim.Adam(self.online_model.parameters(), lr=self.lr)
 
     def learn(self):
         # 1. Sample a batch of experience from replay buffer
@@ -51,6 +49,8 @@ class DQN(DQNAgent):
             # Target = reward + gamma * max_a Q_target(s', a) * (1 - done)
             # Multiply by (1 - done) so target is just 'r' if next_state is terminal
             td_target = rewards + self.gamma * next_max_q * (1 - dones)
+            # Clip the TD-target as written in the Nature paper
+            td_target = torch.clamp(td_target, min = -1, max = 1)
         
         # 6. Calculate MSE loss
         loss: torch.Tensor = (td_target - actual_q_values) ** 2
@@ -60,9 +60,6 @@ class DQN(DQNAgent):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
-    def update_target_network(self):
-        self.target_model.load_state_dict(self.online_model.state_dict())
 
     def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
         
@@ -86,7 +83,7 @@ class DQN(DQNAgent):
             done = terminated or truncated
 
             # Store experience in the buffer
-            self.memory.push(obs, action, reward, next_obs, done)
+            self.memory.push(obs, action, self.clip_reward(reward), next_obs, done)
             
             # Set next observation to the current one
             obs = next_obs

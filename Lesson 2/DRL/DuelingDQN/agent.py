@@ -8,19 +8,92 @@ from tqdm import tqdm
 import torch
 from typing import List
 from collections import deque
+import torch.nn as nn
 
-class DDQN(DQNAgent):
+class FCD3QN(nn.Module):
+    def __init__(self, obs_space, action_space, hidden_space: int = 128):
+        super(FCD3QN, self).__init__()
+        self.feature = nn.Sequential(
+            nn.Linear(obs_space, hidden_space),
+            nn.ReLU()
+        )
+        
+        self.advantage = nn.Sequential(
+            nn.Linear(hidden_space, hidden_space),
+            nn.ReLU(),
+            nn.Linear(hidden_space, action_space)
+        )
+        
+        self.value = nn.Sequential(
+            nn.Linear(hidden_space, hidden_space),
+            nn.ReLU(),
+            nn.Linear(hidden_space, 1) # A single output V(s)
+        )
+
+    def forward(self, x: torch.Tensor):
+        x = self.feature(x)
+        advantage = self.advantage(x)
+        value = self.value(x)
+        return value + advantage - advantage.mean(dim=-1, keepdim=True)
+    
+class CNND3QN(nn.Module):
+    def __init__(self, obs_space, action_space, hidden_space: int = 128):
+        super(CNND3QN, self).__init__()
+        self.backbone = nn.Sequential(
+            nn.Conv2d(obs_space[0], 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU()
+        )   
+        # Pass a zero tensor to get the final flattened shape of the resulting tensor
+        with torch.no_grad():
+            feature_size = self.backbone(torch.zeros(1, *obs_space)).view(1, -1).size(1)
+        
+        self.advantage = nn.Sequential(
+            nn.Linear(feature_size, hidden_space),
+            nn.ReLU(),
+            nn.Linear(hidden_space, action_space)
+        )
+        
+        self.value = nn.Sequential(
+            nn.Linear(feature_size, hidden_space),
+            nn.ReLU(),
+            nn.Linear(hidden_space, 1) # A single output V(s)
+        )
+
+    def forward(self, x: torch.Tensor):
+        x = self.backbone(x)
+        x = x.view(x.size(0), -1)
+        advantage = self.advantage(x)
+        value = self.value(x)
+        return value + advantage - advantage.mean(dim=-1, keepdim=True)
+
+
+class D3QN(DQNAgent):
     '''
-    A double DQN algorithm.
+    A Dueling Double DQN algorithm.
     '''
     def __init__(self, *args, **kwargs ):
         self.target_update_freq = kwargs.pop("target_update_freq", 1000)
         self.learning_starts = kwargs.pop("learning_starts", 50000)
         self.learning_freq = kwargs.pop("learning_freq", 1)
         self.solved_reward = kwargs.pop("solved_reward", 10000)
-        self.lr = kwargs.pop("lr", 1e-3)
         super().__init__(*args, **kwargs)
-        
+
+        # Replace online and target models with updated versions
+        print(f"Replacing policies to match Dueling-DQN implementation")
+        if not self.is_atari:
+            print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
+            self.online_model = FCD3QN(self.observation_space.shape[0], self.action_space.n, kwargs.get("hidden_space", 64)).to(self.device)
+            self.target_model = FCD3QN(self.observation_space.shape[0], self.action_space.n, kwargs.get("hidden_space", 64)).to(self.device)
+        else:
+            print(f"Detected an Atari environment, observation space shape: {self.observation_space.shape}, using Convolutional Neural Network (CNN)")
+            self.online_model = CNND3QN(self.observation_space.shape, self.action_space.n, kwargs.get("hidden_space", 512)).to(self.device)
+            self.target_model = CNND3QN(self.observation_space.shape, self.action_space.n, kwargs.get("hidden_space", 512)).to(self.device)
+        # Re-nitialize optimizer, use same set of params as in Nature paper
+        self.optimizer = torch.optim.RMSprop(self.online_model.parameters(), lr=self.lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
 
     def learn(self):
         # 1. Sample a batch of experience from replay buffer
@@ -57,6 +130,7 @@ class DDQN(DQNAgent):
             td_target = rewards + self.gamma * target_q * (1 - dones)
             # Clip the TD-target as written in the Nature paper
             td_target = torch.clamp(td_target, min = -1, max = 1)
+
         # 6. Calculate MSE loss
         loss: torch.Tensor = (td_target - actual_q_values) ** 2
         loss = loss.mean()

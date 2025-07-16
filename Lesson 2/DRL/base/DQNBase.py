@@ -33,6 +33,7 @@ class DQNAgent(ABC):
                  buffer_size: int = 100000,
                  batch_size: int = 256,
                  seed: int = 24,
+                 lr: float = 2.5e-4
                  ):
         assert(isinstance(env.action_space, gym.spaces.Discrete)), "Detected non-discrete action space, this class works only with discrete action space problems!"
 
@@ -47,7 +48,8 @@ class DQNAgent(ABC):
         self.device = device
         self.batch_size = batch_size
         self.is_atari = is_atari
-
+        self.lr = lr
+        
         if not is_atari:
             print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
             self.online_model = FCNetwork(self.observation_space.shape[0], self.action_space.n, hidden_space).to(device)
@@ -62,7 +64,9 @@ class DQNAgent(ABC):
         # Set seed for reproduction of results
         self.seed = seed
         set_seed(seed)
-        
+        # Initialize optimizer, use same set of params as in Nature paper
+        self.optimizer = torch.optim.RMSprop(self.online_model.parameters(), lr=lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
+
     def choose_action(self, state: np.ndarray):
         if np.random.random() < self.epsilon:
             return np.random.choice(self.action_space.n)
@@ -76,19 +80,22 @@ class DQNAgent(ABC):
         if self.epsilon > self.min_epsilon:
             self.epsilon *= self.epsilon_decay
 
+    def clip_reward(reward):
+        """Implements the DeepMind reward clipping."""
+        return np.sign(reward)
+
     def save_model(self, save_path: str):
         os.makedirs(save_path, exist_ok=True)
         online_model_path = os.path.join(save_path, "online_model.pth")
-        target_model_path = os.path.join(save_path, "target_model.pth")
         torch.save(self.online_model.state_dict(), online_model_path)
-        torch.save(self.target_model.state_dict(), target_model_path)
     
     def load_model(self, load_path: str):
         os.makedirs(load_path, exist_ok=True)
         online_model_path = os.path.join(load_path, "online_model.pth")
-        target_model_path = os.path.join(load_path, "target_model.pth")
         self.online_model.load_state_dict(torch.load(online_model_path))
-        self.target_model.load_state_dict(torch.load(target_model_path))
+
+    def update_target_network(self):
+        self.target_model.load_state_dict(self.online_model.state_dict())
 
     def auto_fire(self):
         action_descr = self.env.unwrapped.get_action_meanings()
