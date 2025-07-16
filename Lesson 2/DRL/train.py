@@ -3,6 +3,7 @@ import torch
 import gymnasium as gym
 from DQN.agent import DQN
 from DDQN.agent import DDQN
+from DuelingDQN.agent import D3QN
 import matplotlib.pyplot as plt
 import ale_py
 from gymnasium.wrappers import AtariPreprocessing
@@ -17,7 +18,7 @@ from rich import print as pprint
 def parse_args():
     parser = argparse.ArgumentParser(description="Train an RL agent on an Atari environment.")
     parser.add_argument('--env', type=str, default="Pong", help="Name of the Atari environment to train on.")
-    parser.add_argument('--agent', type=str, default="DQN", choices=["DQN", "DDQN"], help="Agent to use for training.")
+    parser.add_argument('--agent', type=str, default="DQN", choices=["DQN", "DDQN", "D3QN"], help="Agent to use for training.")
     args = parser.parse_args()
     return args
 
@@ -76,14 +77,14 @@ def main(args):
             if key not in env_config:
                 env_config[key] = default_value
 
-        # Atari specific hyperparams
-        total_timesteps = int(10e6)                                         # atari needs millions of steps. 10 million is a good target.
+        # Atari specific hyperparams . Taken from the Nature paper of Mnih
+        total_timesteps = int(5e6)                                          # atari needs millions of steps. 5 million is a good target.
         learning_starts = 50000                                             # fill the buffer with 50k random steps before learning.
-        buffer_size = int(1e5)                                              # a large buffer of 1 million transitions.
+        buffer_size = int(1e5)                                              # suggested 1M, but because of RAM constaints I use 1e5
         batch_size = 32                                                     # the standard batch size from the nature paper.
-        lr = env_config.get("lr", 1e-4)                                     # a lower learning rate is crucial for stability.
-        target_update_freq = env_config.get("target_update_freq", 5000)     # update the target network every 10,000 training steps.
-        learning_freq = env_config.get("learning_freq", 5000)               # perform one learning update every 4 environment steps.
+        lr = env_config.get("lr", 2.5e-4)                                   # a lower learning rate is crucial for stability.
+        target_update_freq = env_config.get("target_update_freq", 10000)    # update the target network every 10,000 learning training steps not global.
+        learning_freq = env_config.get("learning_freq", 4)                  # perform one learning update every 4 environment steps.
         
         # epsilon decay over the first 1 million steps 
         min_epsilon = 0.1
@@ -97,10 +98,10 @@ def main(args):
         # Classic examples specific hyperparams
         total_timesteps = int(3e5)                           # these examples need less time for training
         learning_starts = 0                                  # we can start learning immediately
-        buffer_size = int(1e4)                               # less memory required
+        buffer_size = int(1e5)                               # less memory required
         batch_size = 64                                      # a good balance 
-        lr = 3e-4                                            # a higher lr is acceptable
-        target_update_freq = 1000                            # update more frequently
+        lr = 1e-3                                            # a higher lr is acceptable
+        target_update_freq = 2000                            # update more frequently
         learning_freq = 1                                    # learn every step
         min_epsilon = 0.1                                    # at least 10% of actions are random 
         start_epsilon = 1.0                                  # start with full exploration
@@ -136,6 +137,26 @@ def main(args):
     elif agent_name == "DDQN":
         pprint(f"[bold yellow] Using Double-DQN agent")
         agent = DDQN(
+            env=env,
+            is_atari=is_atari,
+            hidden_space=env_config.get('hidden_dim', 512),
+            gamma=env_config.get('gamma', 0.99),
+            epsilon=start_epsilon,
+            epsilon_decay=eps_decay,
+            min_epsilon=min_epsilon,
+            device=device,
+            buffer_size=buffer_size,
+            batch_size=batch_size,
+            seed=24,
+            lr=lr,
+            target_update_freq=target_update_freq,
+            learning_freq=learning_freq,
+            learning_starts = learning_starts,
+            solved_reward = env_config.get("solved_reward", 10000)
+            )
+    elif agent_name == "D3QN":
+        pprint(f"[bold yellow] Using Dueling-Double-DQN agent")
+        agent = D3QN(
             env=env,
             is_atari=is_atari,
             hidden_space=env_config.get('hidden_dim', 512),

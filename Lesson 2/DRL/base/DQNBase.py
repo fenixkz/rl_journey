@@ -49,7 +49,7 @@ class DQNAgent(ABC):
         self.batch_size = batch_size
         self.is_atari = is_atari
         self.lr = lr
-        
+
         if not is_atari:
             print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
             self.online_model = FCNetwork(self.observation_space.shape[0], self.action_space.n, hidden_space).to(device)
@@ -80,7 +80,7 @@ class DQNAgent(ABC):
         if self.epsilon > self.min_epsilon:
             self.epsilon *= self.epsilon_decay
 
-    def clip_reward(reward):
+    def clip_reward(self, reward):
         """Implements the DeepMind reward clipping."""
         return np.sign(reward)
 

@@ -6,6 +6,7 @@ import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
 import torch
+import torch.nn.functional as F
 from typing import List
 from collections import deque
 import torch.nn as nn
@@ -131,9 +132,9 @@ class D3QN(DQNAgent):
             # Clip the TD-target as written in the Nature paper
             td_target = torch.clamp(td_target, min = -1, max = 1)
 
-        # 6. Calculate MSE loss
-        loss: torch.Tensor = (td_target - actual_q_values) ** 2
-        loss = loss.mean()
+        # 6. Calculate loss using Huber Loss (Smooth L1 Loss)
+        # This correctly implements the TD-error clipping from the Nature paper.
+        loss = F.smooth_l1_loss(actual_q_values, td_target)
 
         # 7. Perform Gradient Descent Step
         self.optimizer.zero_grad()
@@ -153,6 +154,7 @@ class D3QN(DQNAgent):
 
         pbar = tqdm(range(max_steps), desc="Training", postfix={"mean_reward": "N/A"})
 
+        learning_step = 0
         for global_step in pbar:
             # Sample action or choose the best
             action = self.choose_action(obs)
@@ -192,12 +194,13 @@ class D3QN(DQNAgent):
             # Only start learning after a certain number of steps have been collected
             if global_step > self.learning_starts:
                 # To speed up training for Atari, do learning not at every step, but every L steps
-                if global_step % self.learning_freq == 0: self.learn()
+                if global_step % self.learning_freq == 0: 
+                    self.learn()
+                    learning_step += 1
                 # Update target network every `target_update_freq` steps
-                if global_step % self.target_update_freq == 0: self.update_target_network()
+                if learning_step % self.target_update_freq == 0: self.update_target_network()
             
             # Update the progress bar with new information
             if len(rewards_log) > 0: pbar.set_postfix(mean_reward=f"{mean_reward:.2f}", eps=f"{self.epsilon:.3f}")
             
         pbar.close()
-            
