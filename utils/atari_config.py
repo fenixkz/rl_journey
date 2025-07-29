@@ -12,8 +12,13 @@ benchmarks in RL literature. They provide a consistent target for evaluating age
 
 # --- Default algorithm hyperparameters ---
 # These are common values from DQN literature, used for most games unless specified otherwise.
-DEFAULT_ALGO_PARAMS = {
+DEFAULT_ATARI_PARAMS = {
+    "max_steps": 5e6,
     "gamma": 0.99,
+    "memory_size": 1e6,
+    "alpha": 0.6,
+    "learning_starts": 5e4,
+    "batch_size": 32, # Nature paper
     "lr": 2.5e-4, # Nature paper
     "target_update_freq": 10000, # Nature paper
     "learning_freq": 4, # Nature paper

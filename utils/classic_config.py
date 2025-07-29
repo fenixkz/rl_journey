@@ -1,3 +1,18 @@
+DEFAULT_CLASSIC_PARAMS = {
+    "max_steps": 3e5,
+    "gamma": 0.99,
+    "memory_size": 2e4,
+    "alpha": 0.6,
+    "lr": 5e-4, 
+    "batch_size": 32,
+    "target_update_freq": 500, 
+    "learning_freq": 1, 
+    "epsilon_decay_steps": int(5e4), 
+    "hard_target_update": False,
+    "tau": 0.005,
+    "n_step_return": 1, 
+}
+
 CLASSIC_ENV_CONFIG = {
     'cartpole': {
         'env_id': 'CartPole-v1',

@@ -12,7 +12,7 @@ from gymnasium.wrappers import AtariPreprocessing
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from utils.plot_utils import get_figure
-from utils.atari_config import ATARI_CONFIGS, DEFAULT_ALGO_PARAMS
+from utils.atari_config import ATARI_CONFIGS, DEFAULT_ATARI_PARAMS
 from utils.classic_config import CLASSIC_ENV_CONFIG
 import argparse
 from rich import print as pprint
@@ -75,15 +75,15 @@ def main(args):
         env = gym.wrappers.FrameStackObservation(env, stack_size=4) # Stack last 4 frames as the observation to encode the velocity information
 
         # For any missing algorithm param, add the default value
-        for key, default_value in DEFAULT_ALGO_PARAMS.items():
+        for key, default_value in DEFAULT_ATARI_PARAMS.items():
             if key not in env_config:
                 env_config[key] = default_value
 
         # Atari specific hyperparams . Taken from the Nature paper of Mnih
         total_timesteps = int(5e6)                                          # atari needs millions of steps. 5 million is a good target.
         learning_starts = 50000                                             # fill the buffer with 50k random steps before learning.
-        buffer_size = int(3e5)                                              # suggested 1M, but because of RAM constaints I use 1e5
-        batch_size = 32                                                     # the standard batch size from the nature paper.
+        buffer_size = int(1e6)                                              # suggested 1M, but because of RAM constaints I use 1e5
+        batch_size = 64                                                     # the standard batch size from the nature paper.
         lr = env_config.get("lr", 2.5e-4)                                   # a lower learning rate is crucial for stability.
         target_update_freq = env_config.get("target_update_freq", 10000)    # update the target network every 10,000 learning training steps not global.
         learning_freq = env_config.get("learning_freq", 4)                  # perform one learning update every 4 environment steps.
