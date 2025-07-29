@@ -95,7 +95,7 @@ def main(args):
         eps_decay = (start_epsilon - min_epsilon) / epsilon_decay_steps    
 
         # N step return
-        env_config.get("n_step_return", 3)
+        n_step_return = env_config.get("n_step_return", 3)
     else: 
         # For Box2D envs, frameskip arg does not exist, so we have to separate 
         env = gym.make(env_id)
