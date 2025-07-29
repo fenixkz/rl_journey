@@ -162,7 +162,7 @@ class RAINBOW(DQNAgent):
         reward, next_state, done = 0, None, False
         
         # Sum discounted rewards
-        for i in range(self.n_step_return):
+        for i in range(len(self.n_step_buffer)):
             # Get a reward for a single instance in the deque
             r = self.n_step_buffer[i][2]
             # Accumulate discounted rewards
@@ -180,7 +180,7 @@ class RAINBOW(DQNAgent):
         # If no terminal state was hit, the next_state is from the last transition
         next_state = self.n_step_buffer[-1][3]
         done = self.n_step_buffer[-1][4]
-        return reward, next_state, done, self.n_step_return
+        return reward, next_state, done, len(self.n_step_buffer)
 
     def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
         rewards_log = deque(maxlen=mean_n_episodes)
