@@ -1,7 +1,7 @@
 CLASSIC_ENV_CONFIG = {
     'cartpole': {
         'env_id': 'CartPole-v1',
-        'hidden_dim': 32,
+        'hidden_dim': 128,
         'solved_reward': 495.0,  # Average reward over 100 episodes
         'use_entropy': True, # Whether or not use entropy for exploration
         'use_normalization': False, # Whether or not normalize the returns 
