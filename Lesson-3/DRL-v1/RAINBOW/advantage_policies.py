@@ -20,6 +20,19 @@ class FCD3QN(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_space, 1) # A single output V(s)
         )
+        
+        # Apply He initialization
+        self._initialize_weights()
+    
+    def _initialize_weights(self):
+        """Initialize weights using He (Kaiming) initialization for ReLU activations"""
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                # He initialization for weights
+                nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+                # Initialize biases to zero
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
 
     def forward(self, x: torch.Tensor):
         x = self.feature(x)
@@ -37,7 +50,7 @@ class CNND3QN(nn.Module):
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1),
             nn.ReLU()
-        )   
+        )
         # Pass a zero tensor to get the final flattened shape of the resulting tensor
         with torch.no_grad():
             feature_size = self.backbone(torch.zeros(1, *obs_space)).view(1, -1).size(1)
@@ -53,6 +66,23 @@ class CNND3QN(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_space, 1) # A single output V(s)
         )
+        
+        # Apply He initialization
+        self._initialize_weights()
+    
+    def _initialize_weights(self):
+        """Initialize weights using He (Kaiming) initialization for ReLU activations"""
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d):
+                # He initialization for convolutional layers
+                nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.Linear):
+                # He initialization for linear layers
+                nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
 
     def forward(self, x: torch.Tensor):
         x = self.backbone(x)
