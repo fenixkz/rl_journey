@@ -18,7 +18,7 @@ except Exception:
 env = gym.make("ALE/Breakout-v5", render_mode="rgb_array")
 
 # Reset the environment to get the first observation
-observation, info = env.reset(seed=42)
+observation, info = env.reset()
 
 # 2. Set up the Matplotlib plot for interactive display
 plt.ion()  # Turn on interactive mode

@@ -86,7 +86,7 @@ def main(args):
         batch_size = 64                                                     # the standard batch size from the nature paper.
         lr = env_config.get("lr", 2.5e-4)                                   # a lower learning rate is crucial for stability.
         target_update_freq = env_config.get("target_update_freq", 10000)    # update the target network every 10,000 learning training steps not global.
-        learning_freq = env_config.get("learning_freq", 4)                  # perform one learning update every 4 environment steps.
+        learning_freq = env_config.get("learning_freq", 2)                  # perform one learning update every 4 environment steps.
         
         # epsilon decay over the first 1 million steps 
         min_epsilon = 0.1

@@ -21,7 +21,7 @@ DEFAULT_ATARI_PARAMS = {
     "batch_size": 32, # Nature paper
     "lr": 2.5e-4, # Nature paper
     "target_update_freq": 10000, # Nature paper
-    "learning_freq": 4, # Nature paper
+    "learning_freq": 2, # Nature paper
     "epsilon_decay_steps": int(1e6), # Nature paper
     "hidden_dim": 512, 
     "hard_target_update": False,
