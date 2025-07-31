@@ -2,7 +2,7 @@
 
 Welcome to the third part of this introductory course! I hope last two lessons were enjoyable and knowledgable! 
 
-So, let's recap. In the previous lesson, we have studied the basics of Reinforcement Learning (RL) including $V(s)$, $Q(s,a)$ and their optimal versions. We have also studied how to estimate them using Monte Carlo and Temporal Difference (TD) methods. We reviewed the two most well-known algorithms Q-learning and SARSA.
+Before we dive in, let's recap our journey so far. In the previous lesson, we have studied the basics of Reinforcement Learning (RL) including $V(s)$, $Q(s,a)$ and their optimal versions. We have also studied how to estimate them using Monte Carlo and Temporal Difference (TD) methods. We reviewed the two most well-known algorithms Q-learning and SARSA.
 
 Nevertheless, you might probably noticed that the problems that we solved were quite simple. And yet you also probably heard about RL playing video-games at human-level and even beating humans at them. So, how is it possible with what we learned so far? 
 
@@ -46,7 +46,7 @@ At first glance it might be intuitive to represent this problem as a classificat
 
 However, to use any TD-learning update rules we need to estimate state or state-action values. If the network only outputs the probability distribution over all actions, how can we use that to estimate the Q-values?
 
-Moreover, how can we decide which actions are the best if we do not have any estimates of Q-values? Remember that our rule was to pick action corresponding to the highest value, so we need an estimate for them. 
+Moreover, how can we decide which actions are the best if we do not have any estimates of Q-values? Remember that our rule was to pick the action corresponding to the highest value, so we need an estimate for them. 
 
 Basically, what I am trying to say that it makes much more sense to let the network output not a probability distribution over action space, but do a regression task. Given the state $s$ as the input, the network outputs the estimates of Q-values for each action. As these values are real numbers, this task is inherently of a regression type. 
 
@@ -55,7 +55,7 @@ Basically, what I am trying to say that it makes much more sense to let the netw
 
 Okay, let's modify a bit our notion of Q-values to $Q(s, a; \theta)$ where $\theta$ are parameters of the network (read it as Q-values obtained from the neural network with parameters $\theta$). We can think of it as a function that takes state $s$ as input and outputs Q-value for all actions. The idea is to train the network to approximate $Q(s, a)$ for all possible actions. 
 
-Well, we cannot just collect the dataset of $(s, [Q(s,a) \  \text{for each} \  a  \in A])$ in the same way as we collected $(s,a)$ pairs in the Cross-Entropy Method, because we simply do not know the true Q-values. So we have to think of a workaround, and you know what, in the previous lesson we already established these workarounds. More specifically, the Temporal Difference or Monte-Carlo learning is exactly what we need. That means that we train the network in the same way we trained vanilla Q-learning!
+We cannot just collect the dataset of $(s, [Q(s,a) \  \text{for each} \  a  \in A])$ in the same way as we collected $(s,a)$ pairs in the Cross-Entropy Method, because we simply do not know the true Q-values. So we have to think of a workaround, and you know what, in the previous lesson we already established these workarounds. More specifically, the Temporal Difference or Monte-Carlo learning is exactly what we need. That means that we train the network in the same way we trained vanilla Q-learning!
 
 So, our Q-learning update rule is:
 
@@ -68,8 +68,9 @@ $$
 But we need to slightly modify it to work correctly with neural networks, because we do not store these Q-values. After all we are not updating the entries in the table anymore, now we are updating the weights and biases of the neural network that estimates them. So, naturally, we need to define the loss function. We pick a simple, yet effective L2 (MSE) loss:
 
 $$
-L(\theta) = \frac{1}{2} \left( Q^*(s_t, a_t) - Q(s_t, a_t; \theta_t) \right)^2 \\ 
-Q^*(s_t, a_t) = r_{t+1} + \gamma \max_{a'} Q(s_{t+1}, a'; \theta_t)
+Q^*(s_t, a_t) = r_{t+1} + \gamma \max_{a'} Q(s_{t+1}, a'; \theta_t) \\
+L(\theta) = \frac{1}{2} \left( Q^*(s_t, a_t) - Q(s_t, a_t; \theta_t) \right)^2 \\
+\theta \leftarrow \theta + \nabla_\theta L
 $$
 
 This loss represents an Euclidean distance between two points in the high-dimensional state-action space. First point is our current estimate of Q-value for some $(s, a)$ coordinate. And the second point is the updated estimate using newly generated data sample. By trying to minimize this distance we are moving our estimate towards the new updated estimate. And by doing it iteratively, we hope to converge towards the optimal Q-values.
@@ -82,7 +83,7 @@ So, this is the first approach and you know what? It did not work! I know I know
 
 Okay, let's start with the first problem that is not that obvious but very serious. Every deep learning problem has one assumption that must be valid. It is called i.i.d. or independent and identically distributed data. Basically saying that the data samples the network is using to learn from are independent from one another. But in our case as we iterate in the environment our data coming back from it is at least temporally correlated, right? Doing action $a_t$ in state $s_t$ will affect the next data sample, because that action itself is the main source of the next state $s_{t+1}$. So, there is a temporal correlation between samples ($s_{t+1}$, $a_{t+1}$) and ($s_t$, $a_t$).
 
-Consider this: imagine doing the same action (*Go Left*) from the initial state (entry to the maze) leading to the left part of the maze several times in a row; these sequences of experiences will be very similar. Training a neural network directly on such consecutive, correlated samples is inefficient and can lead to unstable learning. So, we have to deal with it somehow. 
+Consider this: imagine doing the same action (*Go Left*) from the initial state (entry to the maze) leading to the left part of the maze several times in a row; these sequences of experiences will be very similar. Training a neural network directly on such consecutive, correlated samples is inefficient. The same will happen if you try to train a neural network to classify images of dogs and cats by first feeding it 1000 images of dogs and then 1000 images of cats. This leads to unstable learning. So, we have to deal with it somehow. 
 
 The second major problem is "chasing own tail". Look at the update rule for our network:
 
@@ -91,11 +92,15 @@ L(\theta) = \frac{1}{2} \left( Q^*(s_t, a_t) - Q(s_t, a_t; \theta_t) \right)^2 \
 Q^*(s_t, a_t) = r_{t+1} + \gamma \max_{a'} Q(s_{t+1}, a'; \theta_t)
 $$
 
-So, our network tries to make the estimate of $Q(s_t, a_t)$ closer to $Q^*(s_t, a_t)$. But look carefully at the equation of $Q^*(s_t, a_t)$, to calculate this value we are using the estimates of the **same** network but of the next state: $\max_{a'} Q(s_{t+1}, a'; \theta_t)$. The neural network is not that all-mighty, changing params to better estimate $Q(s_t, a_t)$ will affect estimation of $Q(s_{t+1}, a^*)$. It is like a dog chasing its own tail. If you question why we were not seeing this issue in Q-learning, the explanation is simple. Changing one entry in the table does not affect another entry, but when we are using the same network for both estimates, then we are screwed. 
+So, our network tries to make the estimate of $Q(s_t, a_t)$ closer to $Q^*(s_t, a_t)$. But look carefully at the equation of $Q^*(s_t, a_t)$, to calculate this value we are using the estimates of the **same** network but of the next state: $\max_{a'} Q(s_{t+1}, a'; \theta_t)$. The neural network is not that all-mighty, changing params to better estimate $Q(s_t, a_t)$ will affect estimation of $Q(s_{t+1}, a^*)$. So, the network is trying to move $Q(s_t, a_t)$ to its target value, but the target value also moved. On the next iteration, it tries again to move its estimate toward another target and this target also moved. 
+It is basically like a dog chasing its own tail. 
+We did not seen this issue when we were studying Q-learning, simply because changing one entry in the table does not affect another entry, they are independent. But when we are using the same network for both estimates, then we are screwed. 
 
-So, we have two problems that require innovation. The first problem was actually easily solved, instead of immediately updating the neural network with newly gathered `<s, a, r, s'>` sample we instead store it in memory. After enough samples are collected, we are going to sample a random batch of experience and update the network on this random batch. This way we are not learning from consecutive samples, but from the random samples of our experience. This destroys the temporal correlation and solves our problem. That storing the experience approach was called **Replay Buffer**. In practice it is often implemented as a double-ended queue of some maximum size N to keep only the last N samples. Also, by sampling a batch we are doing mini-batch gradient descent which was shown as an improvement over full-batch gradient descent.
+So, we have two problems that require innovation. The first problem was actually easily solved, instead of immediately updating the neural network with newly gathered `<s, a, r, s'>` sample we instead store it in some sort of memory. After enough samples are collected, we are going to sample a random batch of experience from this memory and update the network on this random batch. This way we are not learning from consecutive samples, but from the random samples of our experience. This destroys the temporal correlation and solves our problem. That storing the experience approach was called **Replay Buffer**. In practice it is often implemented as a double-ended queue of some maximum size N to keep only the last N samples. Also, by sampling a batch we are doing mini-batch gradient descent which was shown as an improvement over full-batch gradient descent.
 
-The second problem required a bit more work, but still the solution was simple. The main idea behind the solution was that instead of having one network for two estimates, we will have two networks, one for each estimate. The first network estimates $Q(s_t, a_t)$ and the second network estimates $Q(s_{t+1}, a^*)$. So, basically we decouple the correlation between online estimate $Q(s_t, a_t)$ and target estimate $Q(s_{t+1}, a^*)$. This decoupling stabilizes training. In practice, the first network is called an online network and the second is called a target network. Both of them have exactly the same architecture. During the update, we are updating only the weights of the online network and do not change the target network. But to keep the target estimates up-to-date, we periodically copy weights from the online to the target network.
+The second problem required a bit more work, but still the solution was simple. The main idea was to make the target estimate $Q(s_{t+1}, a)$ static, but at the same time very close to our best estimate. So, naturally it could be solved by making a separate network that only estimates these next state's Q-values. By doign so we decouple the correlation between $Q(s_{t}, a)$ and $Q(s_{t+1}, a)$ estimates. That's great, right? But how then this separate network learns? How does it improve its estimates of $Q(s_{t+1}, a)$, because if it does not improve then our main network is trying to move towards some incorrect values?
+
+Well, the problem is that we cannot make this separate network learnable, i.e. also update its weight and biases the same way we update the main network's parameters. Because we would come back to our original problem. The smart solution is that once every period (let's say 100 steps) we just copy weights from the main network! Of course to copy the weights the second network must have exactly the same architecture as the main network. Think about it, the main network has already updated several times its estimates, so it is way ahead. By copying we make the second network up-to-date with the main network and at the same time we are making the target estimates static! And this is what we originally wanted! Basically, we are replacing one Deep Q-Network with two twins. In the literature the main network is called "online" and the second network is called "target". 
 
 And that's it, these two innovations resulted in a beautiful paper that was able to learn how to play a variety of Atari games just from pixels! There was no pre-defined policy of how to act when someone is shooting the agent, it learned how to interpret the pixels into Q-values to make the best move! In some games the agent could even surpass humans!
 
@@ -163,7 +168,7 @@ $$
 y_j = r_{j+1} + \gamma Q(s_{j+1}, \arg\max_{a'} Q(s_{j+1}, a'; \theta_{online}); \theta_{target})
 $$
 
-(As before, $y_j = r_{j+1}$ if $s_{j+1}$ is a terminal state).
+As before, $y_j = r_{j+1}$ if $s_{j+1}$ is a terminal state.
 
 ---
 
@@ -223,15 +228,7 @@ Unfortunately, this trick has its own pitfalls. Sampling transitions non-uniform
 
 The Solution: **Importance Sampling (IS) Weights** 
 
-Importance Sampling is a method used to address a common statistical problem: how to evaluate one strategy using data that was generated by a different one. In reinforcement learning, this is central to off-policy learning, where an agent needs to learn about a new, improved policy using experiences gathered from older, different policies.
-
-The core mechanism is to re-weight each data point to correct for this mismatch. For every experience, a correction factor known as the importance ratio is calculated. This ratio compares the probability of taking a certain action under the new target policy to the probability of taking that same action under the old behavior policy that originally generated the data.
-
-An experience is given a higher weight if its action is more probable under the new policy, increasing its influence on the learning update. Conversely, its influence is down-weighted if the action is now less probable. This process mathematically corrects for the bias of using off-policy data, allowing the agent to make an accurate judgment about its new strategy.
-
-The main benefit of this technique is a significant improvement in sample efficiency. It enables the agent to continuously and safely learn from its entire history in the replay buffer, even as its strategy changes. This ability to effectively reuse past experiences is a key component of many modern reinforcement learning algorithms.
-
-For each sampled transition $i$, an IS weight $w_i$ is calculated to adjust its contribution to the gradient update. The weight is typically: 
+Importance Sampling is a method used to address a common statistical problem: how to evaluate one strategy using data that was generated by a different one. In our case the one strategy is our true experience of agent interaction with the environment and the second strategy is picking for training only most suprising experience tuples. To being able to safely improve the first strategy using the second strategy we have to re-weight each data point to correct for this mismatch. For each sampled transition $i$, an IS weight $w_i$ is calculated to adjust its contribution to the gradient update. The weight is typically: 
 $$
 w_i = \left( \frac{1}{N \cdot P(i)} \right)^\beta
 $$
@@ -253,6 +250,9 @@ $$
 $$ 
 
 This down-weights the updates for transitions that were sampled very frequently (high $P(i)$, low $w_i$) and up-weights those that were sampled rarely (low $P(i)$, high $w_i$), thus correcting for the biased sampling. The weights are often normalized by dividing by $\max_j w_j$ in the batch to keep update magnitudes stable.
+
+The main benefit of this technique is a significant improvement in sample efficiency. It enables the agent to continuously and safely learn from its entire history in the replay buffer, even as its strategy changes. This ability to effectively reuse past experiences is a key component of many modern reinforcement learning algorithms.
+
 
 4. Updating Priorities After Learning:
 
@@ -283,7 +283,7 @@ By focusing on "surprising" transitions while correcting for the induced bias, P
 
 Okay, you remember how we justified learning Q-values instead of just $V(s)$? That was because knowing $V(s)$ alone isn't enough to pick the best action if we don't have a model of the environment (i.e., we can't easily see what action leads to what next state and its value). With $Q(s,a)$, choosing the best action is easy: just take the $\arg\max_a Q(s,a)$. So, you might wonder, why would anyone want to bring $V(s)$ back into the picture? But it was done in the Dueling DQN paper. 
 
-The insight behind that paper is that for many states, the value of the state itself ($V(s)$) is a dominant factor, and the specific action taken might only result in minor differences in outcome. Imagine your agent is in a game state where a missile is inevitably going to hit it, no matter what action it takes. All actions from this state are "bad" because the state itself is terrible. In such cases, learning the Q-value for every single action independently is inefficient. The network would have to learn that $Q(s, \text{duck})$ is very negative, $Q(s, \text{jump})$ is very negative, and $Q(s, \text{run})$ is also very negative, largely because $V(s)$ itself is so negative. 
+The insight behind that paper is that for many states, the value of the state itself $V(s)$ is a dominant factor, and the specific action taken might only result in minor differences in outcome. Imagine your agent is in a game state where a missile is inevitably going to hit it, no matter what action it takes. All actions from this state are "bad" because the state itself is terrible. In such cases, learning the Q-value for every single action independently is inefficient. The network would have to learn that $Q(s, \text{duck})$ is very negative, $Q(s, \text{jump})$ is very negative, and $Q(s, \text{run})$ is also very negative, largely because $V(s)$ itself is so negative. 
 
 So, the proposal was that it's more efficient to separately estimate the state value $V(s)$ and the advantage $A(s,a)$ for each action.
 
@@ -328,7 +328,7 @@ In conclusion, Dueling DQN doesn't get rid of Q-values; it provides a more intel
 
 ### N-step return
 
-A final question you might ask is: if we used eligibility traces in tabular Q-learning to propagate rewards back more quickly, can we use them in DQN? The answer is **no**, and it's worth understanding exactly why.
+Another question you might ask is: if we used eligibility traces in tabular Q-learning to propagate rewards back more quickly, can we use them in DQN? The answer is **no**, and it's worth understanding exactly why.
 
 To understand the incompatibility, we first need to recall how eligibility traces work.
 
@@ -354,13 +354,13 @@ The entire purpose of the replay buffer is to destroy this contiguous sequence. 
 
 When you calculate the TD-error for Transition 1, you have no way of knowing what state-action pair came before it $(s_{57}, a_{57})$. The "breadcrumb trail" is gone. It's impossible to propagate the error backward along a trace that doesn't exist in the shuffled mini-batch.
 
-This fundamental conflict between the **on-policy** nature of eligibility traces and the **off-policy** nature of experience replay is why they cannot be used together.
+Replay buffer helped us break temporal correlation, but it originated another fundamental conflict. This fundamental conflict between the **on-policy** nature of eligibility traces and the **off-policy** nature of experience replay is why they cannot be used together.
 
 ---
 
-### The Alternative: N-Step Returns
+#### The Alternative: N-Step Returns
 
-However, we can achieve a similar goal—looking further into the future to create a more stable learning target—with **N-Step Returns**. Instead of a 1-step target, we can unroll the trajectory for $N$ steps:
+However, we can achieve a similar goal-looking further into the future to create a more stable learning target—with **N-Step Returns**. Instead of a 1-step target, we can unroll the trajectory for $N$ steps:
 
 $$
 y = r_t + \gamma r_{t+1} + \ldots + \gamma^{N-1} r_{t+N-1} + \gamma^N \max_{a'} Q(s_{t+N}, a'; \theta_{\text{target}})
@@ -376,31 +376,273 @@ So, you have to modify what you store in the memory (either Replay Buffer or PER
 
 Furthermore, because there can be cases where the agent hits the terminal state before all N steps are done you have to store additionally $n$ which is the number of actual steps that were taken.
 
+It is important to understand that we are still storing in the memory each transition of the agent, we are just changing the reward to N-step return. It might be more intuitive to understand this concept with an example. 
+
+Let's say an agent took 5 steps in an environment and our $N$ is set to 3 (for simplicity assume that only last step resulted in terminal next state):
+
+($s_0$, $a_0$, $r_1$, $s_1$) -> ($s_1$, $a_1$, $r_2$, $s_2$) -> ($s_2$, $a_2$, $r_3$, $s_3$) -> ($s_3$, $a_3$, $r_4$, $s_4$) -> ($s_4$, $a_4$, $r_5$, $s_5$, $\text{done}=T$)
+
+Then, we would calculate each 3-step return and these tuples in the form (state, action, return, final state, actual steps taken, done) will be added to our buffer:
+
+- $(s_0, a_0, r_1 + \gamma r_2 + \gamma^2 r_3, s_3, 3, F)$
+- $(s_1, a_1, r_2 + \gamma r_3 + \gamma^2 r_4, s_4, 3, F)$
+- $(s_2, a_2, r_3 + \gamma r_4 + \gamma^2 r_5, s_5, 3, T)$
+- $(s_3, a_3, r_4 + \gamma r_5, s_5, 2, T)$
+- $(s_4, a_4, r_5, s_5, 1, T)$
+
+So, we are still adding to the buffer every transition, the only change is replacing one step reward with N-step return. You might wonder why do we have to store additionally actual number of steps taken? This $n$ is needed to correctly calculate TD-target. If you remember for TD-target we use this formula:
+
+$$
+\text{TD Target} = r + \gamma \cdot \max_a{Q(s_{t+1},a)}
+$$
+
+Since we replaced a single step reward $r$ with N-step return $G_n$, we also have to scale the final state value correspondigly (via $\gamma$). Meaning that the target is calculated now as:
+
+$$
+\text{TD Target} = G_n + \gamma^n \cdot \max_a{Q(s_{t+n+1},a)}
+$$
+
+## Distributional Reinforcement Learning
+
+Now, here's a fascinating question that probably never crossed your mind: what if we've been thinking about Q-values all wrong? I mean, we've been happily estimating $Q(s,a)$ as a single number - the expected return from taking action $a$ in state $s$. But what if that's not enough? What if we need to understand not just the average outcome, but the entire *distribution* of possible outcomes?
+
+This is exactly the revolutionary insight behind **Distributional Reinforcement Learning**, introduced by Bellemare et al. in their groundbreaking 2017 paper. And trust me, once you understand this concept, you'll never look at Q-values the same way again.
+
+### The Problem with Expectations
+
+Let me give you an intuitive example. Imagine you're an agent deciding between two actions in some game state:
+
+- **Action A**: Gives you exactly 10 points every single time
+- **Action B**: Gives you either 0 points (50% chance) or 20 points (50% chance)
+
+Both actions have the same expected value of 10 points. Using traditional Q-learning, your agent would see these actions as equivalent: $Q(s, A) = Q(s, B) = 10$. But are they really the same? Action A is safe and predictable, while Action B is risky but potentially more rewarding. In many scenarios, this distinction matters enormously!
+
+The fundamental issue is that **expected values throw away crucial information about uncertainty and risk**. When we collapse the entire distribution of possible returns into a single number, we lose the ability to reason about the variability of outcomes.
+
+### The Distributional Approach
+
+Instead of learning $Q(s,a)$ as a scalar, distributional RL learns $Z(s,a)$ as a **probability distribution over returns**. This distribution captures not just the expected value, but the entire range of possible outcomes and their probabilities.
+
+Mathematically, we define the **return distribution** as:
+
+$$
+Z(s,a) = \sum_{t=0}^{\infty} \gamma^t R_{t+1}
+$$
+
+where $Z(s,a)$ is now a random variable representing all possible returns, not just their expectation.
+
+The beautiful insight is that we can still recover the traditional Q-value if needed:
+
+$$
+Q(s,a) = \mathbb{E}[Z(s,a)]
+$$
+
+But now we have access to much richer information about the nature of the returns.
+
+### The Distributional Bellman Equation
+
+Just as we had a Bellman equation for Q-values, we need one for return distributions. The distributional Bellman equation is:
+
+$$
+Z(s,a) \stackrel{d}{=} R(s,a) + \gamma Z(s', \pi(s'))
+$$
+
+where $\stackrel{d}{=}$ means "equal in distribution." This equation says that the return distribution from state-action pair $(s,a)$ equals the immediate reward plus the discounted return distribution from the next state.
+
+But here's where it gets tricky: how do we represent and learn these distributions using neural networks?
+
+### Categorical DQN: Discretizing the Distribution
+
+The first practical solution was **Categorical DQN** (C51), which discretizes the return distribution into a fixed number of "atoms" or bins. Here's how it works:
+
+1. **Choose a Range**: Define the minimum and maximum possible returns, $V_{min}$ and $V_{max}$
+
+2. **Create Atoms**: Divide this range into $N$ discrete support points (typically $N=51$, hence C51):
+   $$
+   z_i = V_{min} + i \cdot \frac{V_{max} - V_{min}}{N-1}, \quad i = 0, 1, \ldots, N-1
+   $$
+
+3. **Learn Probabilities**: For each action, the network outputs a probability distribution over these $N$ atoms. So instead of outputting a single Q-value per action, it outputs $N$ probabilities that sum to 1.
+
+4. **Distributional Target**: When computing the target for the distributional Bellman equation, we need to:
+   - Take the target distribution from the next state
+   - Shift it by the immediate reward: $r + \gamma z_i$
+   - Project it back onto our fixed support (since $r + \gamma z_i$ might not align with our predefined atoms)
+
+### The Projection Step: Where the Magic Happens
+
+The projection step is where Categorical DQN shows its ingenuity. When we compute $r + \gamma z_i$, this shifted value rarely lands exactly on one of our predefined atoms. So we need to distribute its probability mass to the nearest atoms.
+
+If $\hat{z}_j = r + \gamma z_j$ falls between atoms $z_l$ and $z_u$, we split the probability proportionally:
+
+$$
+\left(\Phi \hat{Z}\right)_l = \frac{z_u - \hat{z}_j}{z_u - z_l} \quad \text{and} \quad \left(\Phi \hat{Z}\right)_u = \frac{\hat{z}_j - z_l}{z_u - z_l}
+$$
+
+This ensures that the total probability mass is conserved during the projection.
+
+### Why Does This Work So Well?
+
+You might wonder: "This seems like a lot of complexity just to get the same expected value in the end. Why bother?"
+
+The answer lies in **richer representations and better learning dynamics**:
+
+1. **Better Value Estimates**: By learning the full distribution, the network captures uncertainty information that helps it make better decisions. States with high variance in returns are naturally distinguished from those with low variance.
+
+2. **Improved Learning Dynamics**: The distributional approach often leads to more stable learning. Instead of a single target that can jump around dramatically, we have a distribution of targets that evolves more smoothly.
+
+3. **Multi-modal Returns**: Some state-action pairs might have genuinely multi-modal return distributions (e.g., "either you win big or lose big"). Traditional Q-learning would average these modes, potentially missing important structure.
+
+4. **Risk-Sensitive Behavior**: With access to the full distribution, the agent can make risk-aware decisions. It can choose conservative actions when uncertainty is high or aggressive actions when it's confident about high returns.
+
+### The Empirical Results
+
+The results were striking. Categorical DQN didn't just match the performance of traditional DQN—it significantly outperformed it across a wide range of Atari games. More importantly, the learned return distributions revealed fascinating insights about the structure of different games. In some games, the distributions were narrow and concentrated (low uncertainty), while in others they were broad and multi-modal (high uncertainty).
+
+This wasn't just a marginal improvement; it was a fundamental shift in how we think about value-based reinforcement learning. By embracing the inherent stochasticity of returns rather than averaging it away, distributional RL opened up new possibilities for more nuanced and effective decision-making.
+
+### Noisy Nets for Exploration
+
+Alright, let's talk about exploration—one of the most persistent challenges in reinforcement learning. You remember $\epsilon$-greedy, right? Pick a random action with probability $\epsilon$, otherwise pick the best action according to your current estimates. It's simple, it works, but let's be honest—it's pretty crude.
+
+Think about it: $\epsilon$-greedy treats all actions equally when exploring. Whether you're in a state where you've tried all actions a thousand times or in a completely novel state you've never seen before, $\epsilon$-greedy just picks randomly. That's like exploring a new city by randomly closing your eyes and walking in arbitrary directions. Sometimes it works, but it's hardly optimal!
+
+### The Deep Problem with $\epsilon$-Greedy in Deep RL
+
+The problem becomes even more pronounced in deep RL. In tabular methods, each state-action pair gets updated independently. But with function approximation, updating one state-action pair affects the values of similar states. This means that traditional exploration strategies might not be leveraging the representational power of neural networks effectively.
+
+Moreover, $\epsilon$-greedy exploration is **temporally inconsistent**. The agent might take action $a$ in state $s$ at time $t$, then immediately take a different action in the same state at time $t+1$, simply due to the randomness in $\epsilon$-greedy. This inconsistency can confuse the learning process and lead to inefficient exploration.
+
+### Enter Noisy Networks
+
+**Noisy Networks** for exploration, introduced by Fortunato et al. in 2017, provide an elegant solution to these problems. Instead of adding noise to the action selection (like $\epsilon$-greedy), noisy networks add noise directly to the neural network parameters. The key insight is: **if you add noise to the weights, the entire policy becomes inherently stochastic, but in a structured and consistent way**.
+
+### How Do Noisy Networks Work?
+
+The basic idea is to replace the linear layers in your network with "noisy linear layers." Each noisy layer computes:
+
+$$
+y = (\mu^w + \sigma^w \odot \epsilon^w) x + \mu^b + \sigma^b \odot \epsilon^b
+$$
+
+where:
+- $\mu^w$ and $\mu^b$ are the mean weights and biases (learnable parameters)
+- $\sigma^w$ and $\sigma^b$ are the noise scale parameters (also learnable!)
+- $\epsilon^w$ and $\epsilon^b$ are noise vectors sampled from a standard normal distribution
+- $\odot$ denotes element-wise multiplication
+
+The brilliant insight here is that **both the mean and the noise scale are learned**. The network learns not just what the optimal parameters should be, but also how much noise it should inject and where.
+
+### Two Flavors of Noise: Independent vs Factorized
+
+There are two ways to sample the noise:
+
+1. **Independent Gaussian**: Each weight gets its own independent noise sample. This gives maximum flexibility but requires more random number generation.
+
+2. **Factorized Gaussian**: A more efficient approach where we generate noise vectors for inputs and outputs, then take their outer product. For a layer with $p$ inputs and $q$ outputs:
+   $$
+   \epsilon^w_{i,j} = f(\epsilon_i) \cdot f(\epsilon_j)
+   $$
+   where $f(x) = \text{sign}(x)\sqrt{|x|}$ and $\epsilon_i, \epsilon_j$ are independent standard Gaussian samples.
+
+The factorized approach dramatically reduces the computational cost while still providing rich exploratory behavior.
+
+### Why This is Better Than $\epsilon$-Greedy
+
+1. **State-dependent Exploration**: The network learns to explore more in uncertain states and less in well-understood states. This is because the noise affects the entire forward pass, and the learned noise parameters can adapt to different situations.
+
+2. **Temporal Consistency**: Unlike $\epsilon$-greedy, if you put the agent in the same state multiple times with the same noise realization, it will take the same action. This consistency helps with learning.
+
+3. **Automatic Annealing**: As the network becomes more confident (through training), it can learn to reduce the noise scales $\sigma$, naturally transitioning from exploration to exploitation without manual scheduling.
+
+4. **Action Diversity**: Instead of uniform random selection, the noisy network provides structured exploration that's informed by the current value estimates.
+
+### The Learning Dynamics
+
+Here's what makes noisy networks particularly clever: **the noise parameters are updated using the same gradients as the mean parameters**. When the agent discovers a good action through noisy exploration, the gradient update not only reinforces the mean parameters toward that action but also adjusts the noise parameters appropriately.
+
+If exploration in a particular direction led to good outcomes, the network might learn to increase noise in that direction. If random exploration consistently leads to poor outcomes in certain states, the network learns to reduce noise for those states.
+
+### RAINBOW: Combining Everything We've Learned
+
+Now we arrive at the crown jewel of the DQN family: **RAINBOW DQN**. But this isn't just another incremental improvement—it's a masterpiece of algorithmic engineering that demonstrates how individual innovations can be combined synergistically.
+
+The name "RAINBOW" isn't just catchy marketing; it represents the integration of six different colors (improvements) of the DQN spectrum:
+
+1. **Double DQN** - Addressing overestimation bias
+2. **Prioritized Experience Replay** - Learning from important experiences
+3. **Dueling DQN** - Separating state values from action advantages
+4. **Multi-step Learning** - N-step returns for better targets
+5. **Distributional RL** - Learning return distributions instead of expectations
+6. **Noisy Networks** - Parameter space exploration instead of $\epsilon$-greedy
+
+### The Integration Challenge
+
+You might think: "Just throw all these techniques together and call it a day!" But combining these improvements is far from trivial. Each technique was originally developed and tested in isolation, and their interactions can be complex and sometimes counterproductive.
+
+For example:
+- How do you prioritize experiences when you're learning distributions instead of scalar values?
+- How do noisy networks interact with the target network copying mechanism?
+- Does the dueling architecture work well with distributional outputs?
+
+The RAINBOW authors didn't just combine these techniques—they carefully engineered how they interact, resolving conflicts and ensuring that each component enhances rather than interferes with the others.
+
+### The Distributional-Dueling Integration
+
+One particularly elegant integration is between distributional RL and dueling networks. In standard dueling DQN, we compute:
+
+$$
+Q(s,a) = V(s) + \left( A(s,a) - \frac{1}{|\mathcal{A}|} \sum_{a'} A(s,a') \right)
+$$
+
+But in RAINBOW, we need to do this for entire distributions, not just scalar values. So the distributional dueling architecture computes:
+
+$$
+Z(s,a) = V_Z(s) + \left( A_Z(s,a) - \frac{1}{|\mathcal{A}|} \sum_{a'} A_Z(s,a') \right)
+$$
+
+where each component ($V_Z$, $A_Z$) is now a distribution over the support atoms. This requires careful handling of the probability distributions at each step.
+
+### Multi-step Distributional Targets
+
+Similarly, combining N-step returns with distributional RL requires rethinking the target computation. Instead of the scalar N-step target:
+
+$$
+G_n = r_t + \gamma r_{t+1} + \ldots + \gamma^{n-1} r_{t+n-1} + \gamma^n \max_{a'} Q(s_{t+n}, a')
+$$
+
+RAINBOW uses a distributional N-step target where the final term becomes a distribution:
+
+$$
+G_n = r_t + \gamma r_{t+1} + \ldots + \gamma^{n-1} r_{t+n-1} + \gamma^n Z(s_{t+n}, a^*_{t+n})
+$$
+
+where $a^*_{t+n}$ is selected using the expected values of the distributions (maintaining the double DQN action selection/evaluation separation).
+
+### The Remarkable Results
+
+The results were nothing short of spectacular. RAINBOW didn't just incrementally improve upon existing methods—it achieved a massive leap in performance across the Atari benchmark. More impressively, it demonstrated that these improvements were truly synergistic. The full RAINBOW agent significantly outperformed agents using any subset of its components.
+
+Perhaps most importantly, RAINBOW established a new standard for what deep RL algorithms could achieve. It showed that careful engineering and systematic combination of well-understood improvements could lead to dramatic advances in performance.
+
+### The Legacy of Systematic Improvement
+
+RAINBOW represents something profound about the field of deep reinforcement learning: **progress often comes not from revolutionary new ideas, but from the careful integration of incremental improvements**. Each component of RAINBOW addressed a specific, well-understood limitation:
+
+- Overestimation bias → Double DQN
+- Sample efficiency → Prioritized Experience Replay
+- Architectural efficiency → Dueling Networks
+- Credit assignment → Multi-step returns
+- Information loss → Distributional RL
+- Exploration efficiency → Noisy Networks
+
+By systematically addressing each limitation and carefully engineering their interactions, RAINBOW achieved performance that was greater than the sum of its parts. This approach—identifying specific problems, developing targeted solutions, and carefully combining them—became a template for future algorithm development in deep RL.
+
+The success of RAINBOW also demonstrated the maturity of the DQN paradigm. It showed that value-based deep RL had evolved from a promising but unstable technique to a robust and powerful framework capable of achieving superhuman performance across a wide range of challenging domains.
+
+
 ## Other Advancements
 
-The improvements we've covered in this lesson—Double DQN, Prioritized Experience Replay, Dueling DQN, and N-step returns—represent some of the most important and foundational enhancements to the original DQN algorithm. However, it's important to understand that the field of deep reinforcement learning has been incredibly active, and there are many more sophisticated improvements that have been developed.
-
-Explaining all possible improvements to vanilla DQN would require an entire course on its own, and many of these advanced techniques build upon the fundamental concepts we've established here. The improvements presented in this lesson were chosen because they:
-
-1. **Address core, well-understood problems** (overestimation bias, sample efficiency, architectural efficiency)
-2. **Provide clear, intuitive solutions** that help build understanding of deep RL principles
-3. **Serve as building blocks** for understanding more advanced techniques
-4. **Have proven their value** across a wide range of environments and applications
-
-### RAINBOW: The Ultimate Combination
-
-One of the most notable achievements in the DQN family is **RAINBOW DQN**, introduced by Hessel et al. in 2017. RAINBOW is not a single new algorithm, but rather a careful combination of six major DQN improvements:
-
-1. **Double DQN** - Reducing overestimation bias
-2. **Prioritized Experience Replay** - Learning from important experiences
-3. **Dueling DQN** - Architectural improvements separating value and advantage
-4. **Multi-step Learning** - N-step returns for better target estimation
-5. **Distributional RL** - Learning the full distribution of returns rather than just expected values
-6. **Noisy Networks** - Replacing ε-greedy exploration with learned exploration through noisy network parameters
-
-The remarkable thing about RAINBOW is that it demonstrated how these individual improvements could be combined synergistically. Rather than simply adding their benefits, the combination often performed better than the sum of its parts, showing the power of systematic algorithmic development.
-
-RAINBOW achieved state-of-the-art performance on the Atari benchmark and became a standard baseline for comparing new deep RL algorithms. It represents the culmination of years of targeted improvements to the original DQN algorithm.
 
 ### Beyond RAINBOW: The Continuing Evolution
 

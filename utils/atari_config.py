@@ -1,34 +1,3 @@
-"""
-Centralized configuration file for Atari environments in Gymnasium.
-
-This file maps short, user-friendly names to their full environment IDs
-and provides standard hyperparameters for training reinforcement learning agents.
-This includes both environment-specific settings (like frame_skip) and
-algorithm-specific settings (like learning rate).
-
-The "solved_reward" thresholds are often based on human performance or established
-benchmarks in RL literature. They provide a consistent target for evaluating agents.
-"""
-
-# --- Default algorithm hyperparameters ---
-# These are common values from DQN literature, used for most games unless specified otherwise.
-DEFAULT_ATARI_PARAMS = {
-    "max_steps": 5e6,
-    "gamma": 0.99,
-    "memory_size": 1e6,
-    "alpha": 0.6,
-    "learning_starts": 5e4,
-    "batch_size": 32, # Nature paper
-    "lr": 2.5e-4, # Nature paper
-    "target_update_freq": 10000, # Nature paper
-    "learning_freq": 2, # Nature paper
-    "epsilon_decay_steps": int(1e6), # Nature paper
-    "hidden_dim": 512, 
-    "hard_target_update": False,
-    "tau": 0.005,
-    "n_step_return": 3, # RAINBOW benchmark
-}
-
 ATARI_CONFIGS = {
     # --- Special case for Pong with tuned hyperparameters ---
     "pong": {
