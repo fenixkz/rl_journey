@@ -4,7 +4,6 @@ ATARI_CONFIGS = {
         "env_id": "ALE/Pong-v5",
         "solved_reward": 20.0, # Win rate of +20 over the built-in AI
     },
-    # --- Other environments will use default algo params ---
     "breakout": {
         "env_id": "ALE/Breakout-v5",
         "solved_reward": 400.0,
@@ -12,14 +11,10 @@ ATARI_CONFIGS = {
     "space_invaders": {
         "env_id": "ALE/SpaceInvaders-v5",
         "solved_reward": 1668.7,
-         
-         
     },
     "seaquest": {
         "env_id": "ALE/Seaquest-v5",
         "solved_reward": 42054.7,
-         
-         
     },
     "beam_rider": {
         "env_id": "ALE/BeamRider-v5",

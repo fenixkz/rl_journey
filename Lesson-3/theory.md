@@ -402,24 +402,24 @@ $$
 \text{TD Target} = G_n + \gamma^n \cdot \max_a{Q(s_{t+n+1},a)}
 $$
 
-## Distributional Reinforcement Learning
+### Distributional Reinforcement Learning
 
-Now, here's a fascinating question that probably never crossed your mind: what if we've been thinking about Q-values all wrong? I mean, we've been happily estimating $Q(s,a)$ as a single number - the expected return from taking action $a$ in state $s$. But what if that's not enough? What if we need to understand not just the average outcome, but the entire *distribution* of possible outcomes?
+Now, here's a fascinating question that probably never crossed your mind: what if we've been thinking about Q-values all wrong? Crazy right? I mean, we've been happily estimating $Q(s,a)$ as a single number - the expected return from taking action $a$ in state $s$. But what if that's not enough? What if we need to understand not just the average outcome, but the entire *distribution* of possible outcomes?
 
 This is exactly the revolutionary insight behind **Distributional Reinforcement Learning**, introduced by Bellemare et al. in their groundbreaking 2017 paper. And trust me, once you understand this concept, you'll never look at Q-values the same way again.
 
-### The Problem with Expectations
+#### The Problem with Expectations
 
 Let me give you an intuitive example. Imagine you're an agent deciding between two actions in some game state:
 
 - **Action A**: Gives you exactly 10 points every single time
 - **Action B**: Gives you either 0 points (50% chance) or 20 points (50% chance)
 
-Both actions have the same expected value of 10 points. Using traditional Q-learning, your agent would see these actions as equivalent: $Q(s, A) = Q(s, B) = 10$. But are they really the same? Action A is safe and predictable, while Action B is risky but potentially more rewarding. In many scenarios, this distinction matters enormously!
+Both actions have the same expected value of 10 points. Using traditional Q-learning, your agent would see these actions as equivalent: $Q(s, A) = Q(s, B) = 10$. But are they really the same? Action A is safe and predictable, while Action B is risky but potentially more rewarding. In many scenarios, this distinction matters, but when we just represent the actions values as a single real number then this distinction is just erased!
 
 The fundamental issue is that **expected values throw away crucial information about uncertainty and risk**. When we collapse the entire distribution of possible returns into a single number, we lose the ability to reason about the variability of outcomes.
 
-### The Distributional Approach
+#### The Distributional Approach
 
 Instead of learning $Q(s,a)$ as a scalar, distributional RL learns $Z(s,a)$ as a **probability distribution over returns**. This distribution captures not just the expected value, but the entire range of possible outcomes and their probabilities.
 
@@ -437,9 +437,9 @@ $$
 Q(s,a) = \mathbb{E}[Z(s,a)]
 $$
 
-But now we have access to much richer information about the nature of the returns.
+But now we have access to much richer information about the nature of the returns. That sounds much better, don't you agree?
 
-### The Distributional Bellman Equation
+#### The Distributional Bellman Equation
 
 Just as we had a Bellman equation for Q-values, we need one for return distributions. The distributional Bellman equation is:
 
@@ -449,7 +449,7 @@ $$
 
 where $\stackrel{d}{=}$ means "equal in distribution." This equation says that the return distribution from state-action pair $(s,a)$ equals the immediate reward plus the discounted return distribution from the next state.
 
-But here's where it gets tricky: how do we represent and learn these distributions using neural networks?
+But here's where it gets tricky: how do we represent and learn these distributions using neural networks? On one hand we can use something like Gaussian Distribution to represent the all possible Q-values for any (state, action) pairs. But that means that the network will have to work with infinite possible returns. Instead it is more computationally efficient to create something like a histogram of Q-values.
 
 ### Categorical DQN: Discretizing the Distribution
 
@@ -469,7 +469,7 @@ The first practical solution was **Categorical DQN** (C51), which discretizes th
    - Shift it by the immediate reward: $r + \gamma z_i$
    - Project it back onto our fixed support (since $r + \gamma z_i$ might not align with our predefined atoms)
 
-### The Projection Step: Where the Magic Happens
+#### The Projection Step: Where the Magic Happens
 
 The projection step is where Categorical DQN shows its ingenuity. When we compute $r + \gamma z_i$, this shifted value rarely lands exactly on one of our predefined atoms. So we need to distribute its probability mass to the nearest atoms.
 
@@ -481,7 +481,7 @@ $$
 
 This ensures that the total probability mass is conserved during the projection.
 
-### Why Does This Work So Well?
+#### Why Does This Work So Well?
 
 You might wonder: "This seems like a lot of complexity just to get the same expected value in the end. Why bother?"
 
@@ -495,29 +495,29 @@ The answer lies in **richer representations and better learning dynamics**:
 
 4. **Risk-Sensitive Behavior**: With access to the full distribution, the agent can make risk-aware decisions. It can choose conservative actions when uncertainty is high or aggressive actions when it's confident about high returns.
 
-### The Empirical Results
+#### The Empirical Results
 
-The results were striking. Categorical DQN didn't just match the performance of traditional DQN—it significantly outperformed it across a wide range of Atari games. More importantly, the learned return distributions revealed fascinating insights about the structure of different games. In some games, the distributions were narrow and concentrated (low uncertainty), while in others they were broad and multi-modal (high uncertainty).
+The results were striking. Categorical DQN didn't just match the performance of traditional DQN - it significantly outperformed it across a wide range of Atari games. More importantly, the learned return distributions revealed fascinating insights about the structure of different games. In some games, the distributions were narrow and concentrated (low uncertainty), while in others they were broad and multi-modal (high uncertainty).
 
 This wasn't just a marginal improvement; it was a fundamental shift in how we think about value-based reinforcement learning. By embracing the inherent stochasticity of returns rather than averaging it away, distributional RL opened up new possibilities for more nuanced and effective decision-making.
 
 ### Noisy Nets for Exploration
 
-Alright, let's talk about exploration—one of the most persistent challenges in reinforcement learning. You remember $\epsilon$-greedy, right? Pick a random action with probability $\epsilon$, otherwise pick the best action according to your current estimates. It's simple, it works, but let's be honest—it's pretty crude.
+Alright, let's talk about exploration - one of the most persistent challenges in reinforcement learning. You remember $\epsilon$-greedy, right? Pick a random action with probability $\epsilon$, otherwise pick the best action according to your current estimates. It's simple, it works, but let's be honest - it does not sound smart.
 
 Think about it: $\epsilon$-greedy treats all actions equally when exploring. Whether you're in a state where you've tried all actions a thousand times or in a completely novel state you've never seen before, $\epsilon$-greedy just picks randomly. That's like exploring a new city by randomly closing your eyes and walking in arbitrary directions. Sometimes it works, but it's hardly optimal!
 
-### The Deep Problem with $\epsilon$-Greedy in Deep RL
+#### The Deep Problem with $\epsilon$-Greedy in Deep RL
 
 The problem becomes even more pronounced in deep RL. In tabular methods, each state-action pair gets updated independently. But with function approximation, updating one state-action pair affects the values of similar states. This means that traditional exploration strategies might not be leveraging the representational power of neural networks effectively.
 
 Moreover, $\epsilon$-greedy exploration is **temporally inconsistent**. The agent might take action $a$ in state $s$ at time $t$, then immediately take a different action in the same state at time $t+1$, simply due to the randomness in $\epsilon$-greedy. This inconsistency can confuse the learning process and lead to inefficient exploration.
 
-### Enter Noisy Networks
+#### Enter Noisy Networks
 
-**Noisy Networks** for exploration, introduced by Fortunato et al. in 2017, provide an elegant solution to these problems. Instead of adding noise to the action selection (like $\epsilon$-greedy), noisy networks add noise directly to the neural network parameters. The key insight is: **if you add noise to the weights, the entire policy becomes inherently stochastic, but in a structured and consistent way**.
+**Noisy Networks** for exploration, introduced by Fortunato et al. in 2017, provide an elegant solution to these problems. Instead of adding noise to the action selection (like $\epsilon$-greedy), noisy networks add noise directly to the neural network parameters. Like we did in Evolution Strategy example, remember? So, the key insight is: **if you add noise to the weights, the entire policy becomes inherently stochastic, but in a structured and consistent way**.
 
-### How Do Noisy Networks Work?
+#### How Do Noisy Networks Work?
 
 The basic idea is to replace the linear layers in your network with "noisy linear layers." Each noisy layer computes:
 
@@ -525,29 +525,50 @@ $$
 y = (\mu^w + \sigma^w \odot \epsilon^w) x + \mu^b + \sigma^b \odot \epsilon^b
 $$
 
-where:
-- $\mu^w$ and $\mu^b$ are the mean weights and biases (learnable parameters)
-- $\sigma^w$ and $\sigma^b$ are the noise scale parameters (also learnable!)
-- $\epsilon^w$ and $\epsilon^b$ are noise vectors sampled from a standard normal distribution
-- $\odot$ denotes element-wise multiplication
+Let's break this down into simple terms. Think of the network trying to make a decision.
 
-The brilliant insight here is that **both the mean and the noise scale are learned**. The network learns not just what the optimal parameters should be, but also how much noise it should inject and where.
+- $\mu$: The "Best Guess" or Core Strategy. This is the main, learnable part of the network ($\mu^w$ for weights, $\mu^b$ for biases). After training, this represents the agent's best understanding of the optimal policy. You can think of it as the agent's primary, deterministic plan.
 
-### Two Flavors of Noise: Independent vs Factorized
+- $\epsilon$: The "Random Idea" or Quirky Suggestion. This is just a vector of random noise that we sample from a standard distribution. It provides a random direction to deviate from the main plan. Think of it as a random "what if we tried this instead?" suggestion that gets injected into the system.
+
+- $\sigma$: The "Confidence Knob" or Exploration Scale. This is the most brilliant part. $\sigma$ is a set of parameters that the network learns. It acts like a volume knob for the random epsilon vector. The agent learns to turn this knob up or down based on its experience.
+
+If the agent is in a state where it's uncertain, it can learn to increase $\sigma$, amplifying the noise and encouraging it to explore different actions.
+
+If the agent is in a familiar state where it's very confident, it can learn to decrease $\sigma$ towards zero, effectively silencing the noise and sticking to its main plan $\mu$.
+
+So, the final weight used in the calculation is essentially: (Best Guess + Confidence Knob * Random Idea).
+
+The truly powerful insight here is that the network isn't just learning the optimal policy $\mu$; it's also learning how and when to explore by tuning the noise scale $\sigma$. This allows for much more intelligent, state-dependent exploration than the simple, random approach of epsilon-greedy.
+
+#### Two Flavors of Noise: Independent vs Factorized
 
 There are two ways to sample the noise:
 
 1. **Independent Gaussian**: Each weight gets its own independent noise sample. This gives maximum flexibility but requires more random number generation.
 
-2. **Factorized Gaussian**: A more efficient approach where we generate noise vectors for inputs and outputs, then take their outer product. For a layer with $p$ inputs and $q$ outputs:
-   $$
-   \epsilon^w_{i,j} = f(\epsilon_i) \cdot f(\epsilon_j)
-   $$
-   where $f(x) = \text{sign}(x)\sqrt{|x|}$ and $\epsilon_i, \epsilon_j$ are independent standard Gaussian samples.
+2. **Factorized Noise** (The Clever Shortcut): This is the method used in the original paper and is much more efficient. Instead of generating noise for every single connection, we generate just two small random vectors: one for the input neurons and one for the output neurons. We then combine them to create the full noise matrix.
 
-The factorized approach dramatically reduces the computational cost while still providing rich exploratory behavior.
+Let's make that concrete. Imagine a layer with 3 input neurons and 2 output neurons. The full noise matrix needs to be [2, 3].
 
-### Why This is Better Than $\epsilon$-Greedy
+- The Slow Way (Independent): We would generate 2 * 3 = 6 random numbers to fill the matrix.
+
+- The Clever Way (Factorized):
+
+We create a random vector for the inputs, of size 3: `noise_in = [ε_in1, ε_in2, ε_in3]`
+
+We create a random vector for the outputs, of size 2: `noise_out = [ε_out1, ε_out2]`
+
+We combine them with an outer product. This just means we multiply each element of `noise_out` by the entire `noise_in` vector to create the final [2, 3] matrix:
+
+```
+[ ε_out1 * ε_in1,  ε_out1 * ε_in2,  ε_out1 * ε_in3 ]
+[ ε_out2 * ε_in1,  ε_out2 * ε_in2,  ε_out2 * ε_in3 ]
+```
+
+The benefit is huge. We only had to generate 3 + 2 = 5 random numbers instead of 6. For a big 512x512 layer, that's the difference between generating 1,024 numbers versus over 262,000. This shortcut dramatically reduces the computational cost while still producing a rich, structured noise that works exceptionally well for exploration. It's the standard, go-to approach for Noisy Nets.
+
+#### Why This is Better Than $\epsilon$-Greedy
 
 1. **State-dependent Exploration**: The network learns to explore more in uncertain states and less in well-understood states. This is because the noise affects the entire forward pass, and the learned noise parameters can adapt to different situations.
 
@@ -557,11 +578,51 @@ The factorized approach dramatically reduces the computational cost while still 
 
 4. **Action Diversity**: Instead of uniform random selection, the noisy network provides structured exploration that's informed by the current value estimates.
 
-### The Learning Dynamics
+#### The Learning Dynamics
 
 Here's what makes noisy networks particularly clever: **the noise parameters are updated using the same gradients as the mean parameters**. When the agent discovers a good action through noisy exploration, the gradient update not only reinforces the mean parameters toward that action but also adjusts the noise parameters appropriately.
 
 If exploration in a particular direction led to good outcomes, the network might learn to increase noise in that direction. If random exploration consistently leads to poor outcomes in certain states, the network learns to reduce noise for those states.
+
+#### Practical details
+
+Integrating Noisy Nets into a modern DQN agent like Rainbow requires careful attention to a few key details, especially concerning how the online and target networks interact.
+
+First, the most obvious step is replacing the standard `nn.Linear` layers in the final parts of your network (typically after the convolutional base) with your new `NoisyLinear` layers. This is what injects the trainable noise into the decision-making process.
+
+This leads to a critical implementation question: if the noise is for exploration, should our target network also be noisy? The answer is a firm no. The entire purpose of the target network is to provide a stable, low-variance anchor for our Bellman updates. Adding noise to the target would re-introduce the very instability we are trying to prevent. The standard and most effective practice is to use a deterministic target network. This is easily achieved by putting the target network into evaluation mode `target_network.eval()` right after its creation, which disables the noise generation in its layers.
+
+This brings us to the second crucial question, which relates to the Double DQN update rule. When we select the best action for the next state, we use the online network: `argmax Q_online(s', a')`. Should this action selection be noisy? Here, the answer is yes. The noise in the online network represents the agent's current exploratory policy. Therefore, we should use the noisy online network to select the action, as this reflects the agent's current belief about the best action under its exploration strategy.
+
+This leads to the elegant "Noisy Action, Stable Value" principle for the learning update:
+
+- Select Action: Use the noisy online network to find the best action for the next state.
+
+- Evaluate Value: Use the deterministic target network to get a stable estimate of the value of that chosen action.
+
+Another important detail that might seem strange at first: after each learning update, we must reset the noise in our network. Why do we do this? If the noise is what drives exploration, why would we constantly change it?
+
+The answer is that resetting the noise is what enables temporally-consistent, state-dependent exploration.
+
+Let's break down the logic:
+
+- A Fixed "Personality": When we call `reset_noise()`, we sample a new set of random noise vectors ($\epsilon_w$ and $\epsilon_b$) for every noisy layer. These noise vectors are then fixed until the next reset. This means that for a short period (between one learning update and the next), the agent's policy is completely deterministic. If you put it in the same state twice during this period, it will take the exact same action. This gives the agent a consistent "personality" or "quirk" for its next few interactions with the world.
+
+- Coherent Exploration: This consistency is vital. It allows the agent to explore coherently. Instead of just flailing randomly from one step to the next like ϵ-greedy, the agent can follow a consistent (but noisy) strategy for a sequence of steps, which is a much more effective way to discover the consequences of a particular behavior.
+
+- Preventing Stagnation: If we never reset the noise, the agent would have one fixed "quirky" personality for its entire lifetime. It would be stuck with its initial random set of preferences and would not truly explore. By resetting the noise after each gradient update, we give the agent a new "personality" for the next round of data collection.
+
+The process is therefore a cycle:
+
+- Reset Noise: The agent gets a new, random but fixed set of exploratory parameters.
+
+- Collect Data: The agent plays for a few steps with its consistent, noisy policy.
+
+- Learn: The agent performs a gradient update based on the collected data.
+
+- Repeat: The noise is reset, and the cycle begins again.
+
+This elegant mechanism allows the agent to learn how to explore. The underlying mean weights (μ) learn the core policy, while the noise parameters (σ) learn how much to deviate from that policy, and the periodic resetting of the noise vectors (ϵ) ensures that the exploration is always fresh and effective.
 
 ### RAINBOW: Combining Everything We've Learned
 
@@ -576,7 +637,7 @@ The name "RAINBOW" isn't just catchy marketing; it represents the integration of
 5. **Distributional RL** - Learning return distributions instead of expectations
 6. **Noisy Networks** - Parameter space exploration instead of $\epsilon$-greedy
 
-### The Integration Challenge
+#### The Integration Challenge
 
 You might think: "Just throw all these techniques together and call it a day!" But combining these improvements is far from trivial. Each technique was originally developed and tested in isolation, and their interactions can be complex and sometimes counterproductive.
 
@@ -587,7 +648,7 @@ For example:
 
 The RAINBOW authors didn't just combine these techniques—they carefully engineered how they interact, resolving conflicts and ensuring that each component enhances rather than interferes with the others.
 
-### The Distributional-Dueling Integration
+#### The Distributional-Dueling Integration
 
 One particularly elegant integration is between distributional RL and dueling networks. In standard dueling DQN, we compute:
 
@@ -603,7 +664,7 @@ $$
 
 where each component ($V_Z$, $A_Z$) is now a distribution over the support atoms. This requires careful handling of the probability distributions at each step.
 
-### Multi-step Distributional Targets
+#### Multi-step Distributional Targets
 
 Similarly, combining N-step returns with distributional RL requires rethinking the target computation. Instead of the scalar N-step target:
 
@@ -619,13 +680,13 @@ $$
 
 where $a^*_{t+n}$ is selected using the expected values of the distributions (maintaining the double DQN action selection/evaluation separation).
 
-### The Remarkable Results
+#### The Remarkable Results
 
-The results were nothing short of spectacular. RAINBOW didn't just incrementally improve upon existing methods—it achieved a massive leap in performance across the Atari benchmark. More impressively, it demonstrated that these improvements were truly synergistic. The full RAINBOW agent significantly outperformed agents using any subset of its components.
+The results were nothing short of spectacular. RAINBOW didn't just incrementally improve upon existing methods - it achieved a massive leap in performance across the Atari benchmark. More impressively, it demonstrated that these improvements were truly synergistic. The full RAINBOW agent significantly outperformed agents using any subset of its components.
 
 Perhaps most importantly, RAINBOW established a new standard for what deep RL algorithms could achieve. It showed that careful engineering and systematic combination of well-understood improvements could lead to dramatic advances in performance.
 
-### The Legacy of Systematic Improvement
+#### The Legacy of Systematic Improvement
 
 RAINBOW represents something profound about the field of deep reinforcement learning: **progress often comes not from revolutionary new ideas, but from the careful integration of incremental improvements**. Each component of RAINBOW addressed a specific, well-understood limitation:
 
@@ -641,10 +702,10 @@ By systematically addressing each limitation and carefully engineering their int
 The success of RAINBOW also demonstrated the maturity of the DQN paradigm. It showed that value-based deep RL had evolved from a promising but unstable technique to a robust and powerful framework capable of achieving superhuman performance across a wide range of challenging domains.
 
 
-## Other Advancements
+### Other Advancements
 
 
-### Beyond RAINBOW: The Continuing Evolution
+#### Beyond RAINBOW: The Continuing Evolution
 
 Even beyond RAINBOW, the field continues to evolve with improvements like:
 - **Implicit Quantile Networks (IQN)** for better distributional learning
@@ -656,41 +717,182 @@ The key insight here is that deep RL research follows a pattern of **incremental
 
 # Practical details
 
-Well, look at our version of RAINBOW in the `DRL/` folder. It's formal name is N-Step Dueling Double Deep Q-Network with Prioritized Experience Replay. This beast is very powerful, but if you look inside you will see a huge amount of hyperparameters that we need to tune. Unfortunately, RL field is very brittle. Changing even one hyperparameter can result in a very different result. So, let me give some practical default values and intuition behind each one.
+## The Brittleness of Deep Reinforcement Learning
 
-- **Discount factor γ**
-    Discount factor is a parameter that makes the agent more or less far-sighted. It discounts future rewards by a constant, making them less valuable than immediate rewards. Usually, most RL problems show the structure of dependency of order of actions. Meaning that in the beginning doing bad actions can result in irrecoverable bad results. So, usually that factor is set to something like 0.9 or 0.99. In our implementation, we use γ = 0.99.
+Before diving into the specific hyperparameters, we must confront an uncomfortable truth about deep RL: **it is notoriously brittle and sensitive to hyperparameter choices**. Unlike supervised learning where you might get "pretty good" results with default parameters, deep RL can completely fail with seemingly minor parameter changes. This brittleness is not a bug, it's a fundamental characteristic of the field that stems from several factors:
 
-- **Learning rate**
-    Learning rate is a hyperparameter that controls how big of an update we give to our network. The higher the update the more the network changes, but also it means that the network is less stable. The lower the update the slower is the training. Usually practitioners set the learning rate to something like 3e-4. And on top of that decrease it towards zero closer to the end of the training. In our implementation, we use 2.5e-4 for both Atari and classic control environments.
+1. **Non-stationarity**: The data distribution changes as the policy improves, making the learning problem inherently unstable
+2. **Bootstrapping**: We're learning from our own predictions, which can amplify errors
+3. **Exploration-exploitation trade-offs**: Wrong exploration parameters can lead to never discovering good policies
+4. **Credit assignment**: Rewards are often sparse and delayed, making it hard to know what actions were truly responsible for success
 
-- **Memory size**
-    The replay buffer size determines how many past experiences we store for training. A larger buffer provides more diverse experiences but uses more RAM and may include very old, potentially outdated experiences. For Atari games, we use 300,000 transitions (limited by RAM constraints, though 1M is often recommended). For classic control tasks, we use 10,000 transitions to avoid training on very old data that might be less relevant. Try to use 1M buffer size with DQN on CartPole. You will see that the network won't be able to produce decent results. All because it takes a lot of time to populate 1 million samples, and the network is basically using very old data sample for training.
+This means that **hyperparameter tuning is often the hardest and most time-consuming part of deep RL research**. What works for one environment might completely fail for another, and small changes can mean the difference between superhuman performance and complete failure.
 
-- **Batch size**
-    This determines how many experiences we sample from the replay buffer for each learning update. Larger batches provide more stable gradients but require more computation. For Atari, we use 32 (following the original DQN paper), while for classic control we use 128 for better gradient estimates with smaller replay buffers.
+## Core Training Hyperparameters
 
-- **Target network update frequency**
-    How often we copy weights from the main network to the target network. Too frequent updates make training unstable (moving target problem), while too infrequent updates slow learning. Practitioners found that this hard update (simple copying every N steps) is not really the best way to do it. Instead they started using soft update.
-    
-    **Hard Update**: θ_target = θ_online every N steps
-    **Soft Update**: θ_target = τ * θ_online + (1 - τ) * θ_target every step
-    
-    Soft updates gradually blend the target network towards the online network using a small interpolation parameter τ (typically 0.001-0.01). This provides smoother, more stable learning compared to the abrupt changes of hard updates. In our implementation, we use τ = 0.005 for soft updates, though we also support the traditional hard update approach (every 10,000 steps for Atari, every 500 steps for classic control) for comparison.
+Let's examine each category of hyperparameters in detail, understanding not just what they do, but how they can break your training if set incorrectly.
 
-- **Learning frequency**
-    How often we perform a learning update relative to environment steps. For Atari, we learn every 4 steps to balance computation with learning progress. For classic control, we learn every step since these environments are computationally cheaper.
+### Training Scale Parameters
 
-- **Exploration parameters**
-    We use ε-greedy exploration starting at ε = 1.0 (full exploration) and decaying to ε = 0.1 for Atari or ε = 0.02 for classic control. The decay happens over 1 million steps for Atari and 10% of total training steps for classic control. This ensures sufficient exploration early in training while converging to a mostly greedy policy later.
+#### [`max_steps`](Lesson-3/DRL/core/configs.py:5)
+- **Atari**: 5M steps | **Classic**: 300K steps | **Default**: 300K steps
+- **What it does**: Total number of environment steps to train for
+- **Why it matters**: Too few steps = undertrained agent; too many = more chances of destabilizing the training process
+- **Hidden gotcha**: Atari games need much longer training due to complex visual patterns and sparse rewards. Classic control problems can often be solved in 50-100K steps, but we use 300K for robustness.
 
-- **Learning starts**
-    Number of random steps to take before starting learning, allowing the replay buffer to fill with diverse experiences. We use 50,000 steps for Atari and 1,000 for classic control environments.
+#### [`learning_starts`](Lesson-3/DRL/core/configs.py:8)
+- **Atari**: 50K steps | **Classic**: 100 steps | **Default**: 1K steps
+- **What it does**: Number of random steps to collect before starting learning
+- **Why it matters**: Ensures replay buffer has diverse experiences before training begins
+- **Hidden gotcha**: Too low = learning from very limited experience; too high = wasted exploration time. Atari needs more because visual observations require more diverse samples.
 
-- **Prioritized Experience Replay parameters**
-    For PER, we use α = 0.6 to control prioritization strength (0 = uniform sampling, 1 = full prioritization), and β annealing from 0.4 to 1.0 to correct for the bias introduced by non-uniform sampling through importance sampling weights.
+#### [`learning_freq`](Lesson-3/DRL/core/configs.py:11)
+- **Atari**: Every 2 steps | **Classic**: Every step | **Default**: Every step
+- **What it does**: How often to perform a gradient update (in environment steps)
+- **Why it matters**: Balances sample efficiency vs computational cost
+- **Hidden gotcha**: Atari uses 2 because frames are expensive to process; classic control is fast enough for every-step updates.
 
-The key insight is that **hyperparameter selection is environment-dependent**. Atari games require patient, stable learning with large replay buffers due to their visual complexity and sparse rewards. Classic control tasks can afford more aggressive learning with smaller buffers due to their simpler dynamics and denser reward signals. When adapting these algorithms to new environments, start with these defaults but be prepared to tune based on your specific problem characteristics.
+### Memory and Batching
+
+#### [`memory_size`](Lesson-3/DRL/core/configs.py:7)
+- **Atari**: 1M transitions | **Classic**: 100K transitions | **Default**: 10K transitions
+- **What it does**: Maximum number of transitions stored in replay buffer
+- **Why it matters**: Larger buffer = more diverse training data, but more memory usage
+- **Hidden gotcha**: Too small = overfitting to recent experiences; too large = learning from very stale data. Classic control uses smaller buffers because old samples can become harmful as the policy changes quickly.
+
+#### [`batch_size`](Lesson-3/DRL/core/configs.py:9)
+- **Atari**: 32 | **Classic**: 64 | **Default**: 64
+- **What it does**: Number of transitions sampled for each gradient update
+- **Why it matters**: Affects gradient noise and learning stability
+- **Hidden gotcha**: Too small = noisy gradients; too large = slow learning and memory issues. Atari uses 32 (from original Nature paper) while classic control can handle larger batches.
+
+### Learning Dynamics
+
+#### [`lr`](Lesson-3/DRL/core/configs.py:10) (Learning Rate)
+- **Atari**: 2.5e-4 | **Classic**: 3e-4 | **Default**: 5e-4
+- **What it does**: Step size for gradient descent updates
+- **Why it matters**: Controls how aggressively we update the network
+- **Critical gotcha**: This is the most sensitive parameter! Too high = unstable learning, divergence; too low = extremely slow learning. The differences between environments are crucial - Atari's visual complexity requires more conservative learning.
+
+#### [`gamma`](Lesson-3/DRL/core/configs.py:6) (Discount Factor)
+- **All environments**: 0.99
+- **What it does**: How much to value future rewards vs immediate rewards
+- **Why it matters**: Defines the agent's "planning horizon"
+- **Hidden gotcha**: Too low = myopic behavior; too high = can make learning unstable in continuing tasks. 0.99 is standard because it balances long-term planning with numerical stability.
+
+#### [`hidden_dim`](Lesson-3/DRL/core/configs.py:12) (Network Width)
+- **Atari**: 512 | **Classic**: 64 | **Default**: 64
+- **What it does**: Number of neurons in hidden layers
+- **Why it matters**: Network capacity affects ability to represent complex functions
+- **Hidden gotcha**: Too small = underfitting; too large = overfitting and slow training. Atari's high-dimensional visual input requires much larger networks.
+
+### Target Network Updates
+
+#### [`hard_target_update`](Lesson-3/DRL/core/configs.py:14) vs Soft Updates
+- **All environments**: False (use soft updates)
+- **What it does**: Whether to copy weights completely (`True`) or blend them gradually (`False`)
+- **Why it matters**: Affects learning stability - hard updates can cause sudden changes in targets
+
+#### [`target_update_freq`](Lesson-3/DRL/core/configs.py:15) (Hard Updates Only)
+- **Atari**: 10K steps | **Classic**: 1K steps | **Default**: 500 steps
+- **What it does**: How often to copy online → target network (when using hard updates)
+- **Hidden gotcha**: Too frequent = targets change too fast; too rare = targets become stale
+
+#### [`tau`](Lesson-3/DRL/core/configs.py:16) (Soft Updates Only)
+- **All environments**: 0.005
+- **What it does**: Blending rate for soft target updates: `θ_target = τ*θ_online + (1-τ)*θ_target`
+- **Critical insight**: Very small values (0.005) mean targets change extremely slowly, providing stability
+
+### Exploration Parameters (ε-greedy)
+
+#### [`max_epsilon`](Lesson-3/DRL/core/configs.py:19) / [`min_epsilon`](Lesson-3/DRL/core/configs.py:20)
+- **Atari**: 1.0 → 0.1 | **Classic**: 1.0 → 0.02 | **Default**: 1.0 → 0.02
+- **What it does**: Start and end values for random action probability
+- **Why the difference**: Classic control uses lower final epsilon (0.02) because these environments are more deterministic and need less ongoing exploration
+
+#### [`epsilon_decay_steps`](Lesson-3/DRL/core/configs.py:18)
+- **Atari**: 1M steps | **Classic**: 10K steps | **Default**: 50K steps
+- **What it does**: How many steps to linearly decay epsilon from max to min
+- **Critical insight**: Atari needs 100x longer exploration! Visual complexity requires much more diverse experience before the agent can learn effective policies.
+
+### Prioritized Experience Replay (PER)
+
+#### [`alpha`](Lesson-3/DRL/core/configs.py:22)
+- **All environments**: 0.6
+- **What it does**: Controls how much prioritization to use (0=uniform, 1=full prioritization)
+- **Hidden gotcha**: Too high = only train on high-error samples (overfitting); too low = lose benefits of prioritization
+
+#### [`beta_start`](Lesson-3/DRL/core/configs.py:23) / [`beta_final`](Lesson-3/DRL/core/configs.py:24)
+- **All environments**: 0.4 → 1.0
+- **What it does**: Importance sampling correction (annealed from partial to full correction)
+- **Why annealing**: Start with less correction when Q-values are noisy, increase as they become more accurate
+
+#### [`beta_increase_steps`](Lesson-3/DRL/core/configs.py:25)
+- **All environments**: 100K steps
+- **Critical timing**: Shorter than total training time, so beta reaches 1.0 before training ends
+
+### Multi-step Learning
+
+#### [`n_step_return`](Lesson-3/DRL/core/configs.py:27)
+- **All environments**: 3 steps
+- **What it does**: How many steps to unroll for computing returns
+- **Why 3**: Balances bias (fewer steps) vs variance (more steps). Value from Rainbow paper experiments.
+
+### Distributional RL
+
+#### [`n_atoms`](Lesson-3/DRL/core/configs.py:29)
+- **All environments**: 51 atoms
+- **What it does**: Number of discrete points to represent the return distribution
+- **Why 51**: Historical choice from C51 paper, provides good resolution without excessive computation
+
+#### [`v_min`](Lesson-3/DRL/core/configs.py:30) / [`v_max`](Lesson-3/DRL/core/configs.py:31)
+- **All environments**: -10 to +10
+- **What it does**: Range of possible return values for distributional learning
+- **Critical gotcha**: Must cover the actual range of returns in your environment! If returns go outside this range, the distributional learning breaks down.
+
+### Noisy Networks
+
+#### [`noisy_net`](Lesson-3/DRL/core/configs.py:33)
+- **Atari**: True | **Classic**: True | **Default**: True
+- **What it does**: Whether to use parameter noise for exploration instead of ε-greedy
+- **Environment difference**: Comments suggest Atari benefits more from noisy nets than classic control
+
+#### [`noise_std`](Lesson-3/DRL/core/configs.py:34)
+- **Atari**: 0.5 | **Classic**: 0.05 | **Default**: 0.5
+- **What it does**: Initial standard deviation for parameter noise
+- **Critical difference**: Classic control uses 10x smaller noise! Too much noise in simple environments can prevent learning entirely.
+
+## The Hidden Implementation Details
+
+Beyond these parameters, there are crucial implementation details that can make or break training:
+
+### Network Architecture Choices
+- **Convolutional layers**: Atari requires CNN feature extractors for visual input
+- **Layer normalization**: Can help with training stability but may hurt performance in some cases
+- **Activation functions**: ReLU is standard, but other choices can affect learning dynamics
+
+### Reward Scaling and Clipping
+- Many implementations clip rewards to [-1, 1] to prevent gradient explosion
+- Some environments need reward normalization to make learning feasible
+- The choice of reward preprocessing can dramatically affect convergence
+
+### Frame Stacking and Preprocessing
+- Atari typically uses 4 stacked frames to provide temporal information
+- Grayscale conversion and resizing affect what the agent can learn
+- Frame skipping (action repeat) affects the temporal resolution of control
+
+### Optimization Details
+- Adam optimizer is standard, but learning rate schedules matter
+- Gradient clipping prevents exploding gradients in unstable training
+- Weight initialization affects early learning dynamics
+
+## The Fundamental Challenge
+
+The hardest truth about deep RL is that **there is no universal set of hyperparameters**. What works for Atari will likely fail on continuous control. What works for dense rewards will fail with sparse rewards. This is why hyperparameter tuning often consumes 80% of research time in deep RL projects.
+
+The field is actively working on solutions - from automatic hyperparameter tuning to more robust algorithms - but for now, success in deep RL requires patience, systematic experimentation, and a deep understanding of how each parameter affects the learning dynamics.
+
+This brittleness isn't a flaw to be embarrassed about, it's a reminder that we're working at the frontier of what's possible in machine learning, where the interactions between algorithms, environments, and implementations create a complex landscape that we're still learning to navigate.
 
 # Conclusion
 
