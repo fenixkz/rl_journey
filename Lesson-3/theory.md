@@ -26,10 +26,15 @@ We have seen something similar in our first lesson when we used neural networks 
    - [Prioritized Experience Replay](#prioritized-experience-replay)
    - [Dueling DQN](#dueling-dqn)
    - [N-step Return](#n-step-return)
-6. [Other Advancements](#other-advancements)
-   - [RAINBOW: The Ultimate Combination](#rainbow-the-ultimate-combination)
+   - [Distributional Reinforcement Learning](#distributional-reinforcement-learning)
+   - [Noisy Nets for Exploration](#noisy-nets-for-exploration)
+6. [RAINBOW: Combining Everything We've Learned](#rainbow-combining-everything-weve-learned)
+7. [Other Advancements](#other-advancements)
    - [Beyond RAINBOW: The Continuing Evolution](#beyond-rainbow-the-continuing-evolution)
-7. [Conclusion](#conclusion)
+8. [Practical Details](#practical-details)
+   - [The Brittleness of Deep Reinforcement Learning](#the-brittleness-of-deep-reinforcement-learning)
+   - [The Fundamental Challenge](#the-fundamental-challenge)
+9. [Conclusion](#conclusion)
 
 
 ## Deep Learning
@@ -685,7 +690,7 @@ The process is therefore a cycle:
 
 This elegant mechanism allows the agent to learn how to explore. The underlying mean weights (μ) learn the core policy, while the noise parameters (σ) learn how much to deviate from that policy, and the periodic resetting of the noise vectors (ϵ) ensures that the exploration is always fresh and effective.
 
-### RAINBOW: Combining Everything We've Learned
+## RAINBOW: Combining Everything We've Learned
 
 Now we arrive at the crown jewel of the DQN family: **RAINBOW DQN**. But this isn't just another incremental improvement—it's a masterpiece of algorithmic engineering that demonstrates how individual innovations can be combined synergistically.
 
@@ -698,7 +703,7 @@ The name "RAINBOW" isn't just catchy marketing; it represents the integration of
 5. **Distributional RL** - Learning return distributions instead of expectations
 6. **Noisy Networks** - Parameter space exploration instead of $\epsilon$-greedy
 
-#### The Integration Challenge
+### The Integration Challenge
 
 You might think: "Just throw all these techniques together and call it a day!" But combining these improvements is far from trivial. Each technique was originally developed and tested in isolation, and their interactions can be complex and sometimes counterproductive.
 
@@ -709,7 +714,7 @@ For example:
 
 The RAINBOW authors didn't just combine these techniques—they carefully engineered how they interact, resolving conflicts and ensuring that each component enhances rather than interferes with the others.
 
-#### The Distributional-Dueling Integration
+### The Distributional-Dueling Integration
 
 One particularly elegant integration is between distributional RL and dueling networks. In standard dueling DQN, we compute:
 
@@ -725,7 +730,7 @@ $$
 
 where each component ($V_Z$, $A_Z$) is now a distribution over the support atoms. This requires careful handling of the probability distributions at each step.
 
-#### Multi-step Distributional Targets
+### Multi-step Distributional Targets
 
 Similarly, combining N-step returns with distributional RL requires rethinking the target computation. Instead of the scalar N-step target:
 
@@ -741,13 +746,13 @@ $$
 
 where $a^*_{t+n}$ is selected using the expected values of the distributions (maintaining the double DQN action selection/evaluation separation).
 
-#### The Remarkable Results
+### The Remarkable Results
 
 The results were nothing short of spectacular. RAINBOW didn't just incrementally improve upon existing methods - it achieved a massive leap in performance across the Atari benchmark. More impressively, it demonstrated that these improvements were truly synergistic. The full RAINBOW agent significantly outperformed agents using any subset of its components.
 
 Perhaps most importantly, RAINBOW established a new standard for what deep RL algorithms could achieve. It showed that careful engineering and systematic combination of well-understood improvements could lead to dramatic advances in performance.
 
-#### The Legacy of Systematic Improvement
+### The Legacy of Systematic Improvement
 
 RAINBOW represents something profound about the field of deep reinforcement learning: **progress often comes not from revolutionary new ideas, but from the careful integration of incremental improvements**. Each component of RAINBOW addressed a specific, well-understood limitation:
 
@@ -763,7 +768,7 @@ By systematically addressing each limitation and carefully engineering their int
 The success of RAINBOW also demonstrated the maturity of the DQN paradigm. It showed that value-based deep RL had evolved from a promising but unstable technique to a robust and powerful framework capable of achieving superhuman performance across a wide range of challenging domains.
 
 
-### Other Advancements
+## Other Advancements
 
 
 #### Beyond RAINBOW: The Continuing Evolution
@@ -776,180 +781,20 @@ Even beyond RAINBOW, the field continues to evolve with improvements like:
 
 The key insight here is that deep RL research follows a pattern of **incremental, targeted improvements**. Each advancement identifies a specific limitation (bias, variance, exploration, representation, etc.) and proposes a focused solution. Understanding the foundational improvements we've covered gives you the tools to understand and appreciate these more advanced techniques as they continue to emerge.
 
-# Practical details
+## Practical details
 
-## The Brittleness of Deep Reinforcement Learning
+### The Brittleness of Deep Reinforcement Learning
 
-Before diving into the specific hyperparameters, we must confront an uncomfortable truth about deep RL: **it is notoriously brittle and sensitive to hyperparameter choices**. Unlike supervised learning where you might get "pretty good" results with default parameters, deep RL can completely fail with seemingly minor parameter changes. This brittleness is not a bug, it's a fundamental characteristic of the field that stems from several factors:
+We must confront an uncomfortable truth about deep RL: **it is notoriously brittle and sensitive to hyperparameter choices**. Unlike supervised learning where you might get "pretty good" results with default parameters, deep RL can completely fail with seemingly minor parameter changes. This brittleness is not a bug, it's a fundamental characteristic of the field that stems from several factors:
 
 1. **Non-stationarity**: The data distribution changes as the policy improves, making the learning problem inherently unstable
 2. **Bootstrapping**: We're learning from our own predictions, which can amplify errors
 3. **Exploration-exploitation trade-offs**: Wrong exploration parameters can lead to never discovering good policies
 4. **Credit assignment**: Rewards are often sparse and delayed, making it hard to know what actions were truly responsible for success
 
-This means that **hyperparameter tuning is often the hardest and most time-consuming part of deep RL research**. What works for one environment might completely fail for another, and small changes can mean the difference between superhuman performance and complete failure.
+This means that **hyperparameter tuning is often the hardest and most time-consuming part of deep RL research**. What works for one environment might completely fail for another, and small changes can mean the difference between superhuman performance and complete failure. 
 
-## Core Training Hyperparameters
-
-Let's examine each category of hyperparameters in detail, understanding not just what they do, but how they can break your training if set incorrectly.
-
-### Training Scale Parameters
-
-#### [`max_steps`](Lesson-3/DRL/core/configs.py:5)
-- **Atari**: 5M steps | **Classic**: 300K steps | **Default**: 300K steps
-- **What it does**: Total number of environment steps to train for
-- **Why it matters**: Too few steps = undertrained agent; too many = more chances of destabilizing the training process
-- **Hidden gotcha**: Atari games need much longer training due to complex visual patterns and sparse rewards. Classic control problems can often be solved in 50-100K steps, but we use 300K for robustness.
-
-#### [`learning_starts`](Lesson-3/DRL/core/configs.py:8)
-- **Atari**: 50K steps | **Classic**: 100 steps | **Default**: 1K steps
-- **What it does**: Number of random steps to collect before starting learning
-- **Why it matters**: Ensures replay buffer has diverse experiences before training begins
-- **Hidden gotcha**: Too low = learning from very limited experience; too high = wasted exploration time. Atari needs more because visual observations require more diverse samples.
-
-#### [`learning_freq`](Lesson-3/DRL/core/configs.py:11)
-- **Atari**: Every 2 steps | **Classic**: Every step | **Default**: Every step
-- **What it does**: How often to perform a gradient update (in environment steps)
-- **Why it matters**: Balances sample efficiency vs computational cost
-- **Hidden gotcha**: Atari uses 2 because frames are expensive to process; classic control is fast enough for every-step updates.
-
-### Memory and Batching
-
-#### [`memory_size`](Lesson-3/DRL/core/configs.py:7)
-- **Atari**: 1M transitions | **Classic**: 100K transitions | **Default**: 10K transitions
-- **What it does**: Maximum number of transitions stored in replay buffer
-- **Why it matters**: Larger buffer = more diverse training data, but more memory usage
-- **Hidden gotcha**: Too small = overfitting to recent experiences; too large = learning from very stale data. Classic control uses smaller buffers because old samples can become harmful as the policy changes quickly.
-
-#### [`batch_size`](Lesson-3/DRL/core/configs.py:9)
-- **Atari**: 32 | **Classic**: 64 | **Default**: 64
-- **What it does**: Number of transitions sampled for each gradient update
-- **Why it matters**: Affects gradient noise and learning stability
-- **Hidden gotcha**: Too small = noisy gradients; too large = slow learning and memory issues. Atari uses 32 (from original Nature paper) while classic control can handle larger batches.
-
-### Learning Dynamics
-
-#### [`lr`](Lesson-3/DRL/core/configs.py:10) (Learning Rate)
-- **Atari**: 2.5e-4 | **Classic**: 3e-4 | **Default**: 5e-4
-- **What it does**: Step size for gradient descent updates
-- **Why it matters**: Controls how aggressively we update the network
-- **Critical gotcha**: This is the most sensitive parameter! Too high = unstable learning, divergence; too low = extremely slow learning. The differences between environments are crucial - Atari's visual complexity requires more conservative learning.
-
-#### [`gamma`](Lesson-3/DRL/core/configs.py:6) (Discount Factor)
-- **All environments**: 0.99
-- **What it does**: How much to value future rewards vs immediate rewards
-- **Why it matters**: Defines the agent's "planning horizon"
-- **Hidden gotcha**: Too low = myopic behavior; too high = can make learning unstable in continuing tasks. 0.99 is standard because it balances long-term planning with numerical stability.
-
-#### [`hidden_dim`](Lesson-3/DRL/core/configs.py:12) (Network Width)
-- **Atari**: 512 | **Classic**: 64 | **Default**: 64
-- **What it does**: Number of neurons in hidden layers
-- **Why it matters**: Network capacity affects ability to represent complex functions
-- **Hidden gotcha**: Too small = underfitting; too large = overfitting and slow training. Atari's high-dimensional visual input requires much larger networks.
-
-### Target Network Updates
-
-#### [`hard_target_update`](Lesson-3/DRL/core/configs.py:14) vs Soft Updates
-- **All environments**: False (use soft updates)
-- **What it does**: Whether to copy weights completely (`True`) or blend them gradually (`False`)
-- **Why it matters**: Affects learning stability - hard updates can cause sudden changes in targets
-
-#### [`target_update_freq`](Lesson-3/DRL/core/configs.py:15) (Hard Updates Only)
-- **Atari**: 10K steps | **Classic**: 1K steps | **Default**: 500 steps
-- **What it does**: How often to copy online → target network (when using hard updates)
-- **Hidden gotcha**: Too frequent = targets change too fast; too rare = targets become stale
-
-#### [`tau`](Lesson-3/DRL/core/configs.py:16) (Soft Updates Only)
-- **All environments**: 0.005
-- **What it does**: Blending rate for soft target updates: `θ_target = τ*θ_online + (1-τ)*θ_target`
-- **Critical insight**: Very small values (0.005) mean targets change extremely slowly, providing stability
-
-### Exploration Parameters (ε-greedy)
-
-#### [`max_epsilon`](Lesson-3/DRL/core/configs.py:19) / [`min_epsilon`](Lesson-3/DRL/core/configs.py:20)
-- **Atari**: 1.0 → 0.1 | **Classic**: 1.0 → 0.02 | **Default**: 1.0 → 0.02
-- **What it does**: Start and end values for random action probability
-- **Why the difference**: Classic control uses lower final epsilon (0.02) because these environments are more deterministic and need less ongoing exploration
-
-#### [`epsilon_decay_steps`](Lesson-3/DRL/core/configs.py:18)
-- **Atari**: 1M steps | **Classic**: 10K steps | **Default**: 50K steps
-- **What it does**: How many steps to linearly decay epsilon from max to min
-- **Critical insight**: Atari needs 100x longer exploration! Visual complexity requires much more diverse experience before the agent can learn effective policies.
-
-### Prioritized Experience Replay (PER)
-
-#### [`alpha`](Lesson-3/DRL/core/configs.py:22)
-- **All environments**: 0.6
-- **What it does**: Controls how much prioritization to use (0=uniform, 1=full prioritization)
-- **Hidden gotcha**: Too high = only train on high-error samples (overfitting); too low = lose benefits of prioritization
-
-#### [`beta_start`](Lesson-3/DRL/core/configs.py:23) / [`beta_final`](Lesson-3/DRL/core/configs.py:24)
-- **All environments**: 0.4 → 1.0
-- **What it does**: Importance sampling correction (annealed from partial to full correction)
-- **Why annealing**: Start with less correction when Q-values are noisy, increase as they become more accurate
-
-#### [`beta_increase_steps`](Lesson-3/DRL/core/configs.py:25)
-- **All environments**: 100K steps
-- **Critical timing**: Shorter than total training time, so beta reaches 1.0 before training ends
-
-### Multi-step Learning
-
-#### [`n_step_return`](Lesson-3/DRL/core/configs.py:27)
-- **All environments**: 3 steps
-- **What it does**: How many steps to unroll for computing returns
-- **Why 3**: Balances bias (fewer steps) vs variance (more steps). Value from Rainbow paper experiments.
-
-### Distributional RL
-
-#### [`n_atoms`](Lesson-3/DRL/core/configs.py:29)
-- **All environments**: 51 atoms
-- **What it does**: Number of discrete points to represent the return distribution
-- **Why 51**: Historical choice from C51 paper, provides good resolution without excessive computation
-
-#### [`v_min`](Lesson-3/DRL/core/configs.py:30) / [`v_max`](Lesson-3/DRL/core/configs.py:31)
-- **All environments**: -10 to +10
-- **What it does**: Range of possible return values for distributional learning
-- **Critical gotcha**: Must cover the actual range of returns in your environment! If returns go outside this range, the distributional learning breaks down.
-
-### Noisy Networks
-
-#### [`noisy_net`](Lesson-3/DRL/core/configs.py:33)
-- **Atari**: True | **Classic**: True | **Default**: True
-- **What it does**: Whether to use parameter noise for exploration instead of ε-greedy
-- **Environment difference**: Comments suggest Atari benefits more from noisy nets than classic control
-
-#### [`noise_std`](Lesson-3/DRL/core/configs.py:34)
-- **Atari**: 0.5 | **Classic**: 0.05 | **Default**: 0.5
-- **What it does**: Initial standard deviation for parameter noise
-- **Critical difference**: Classic control uses 10x smaller noise! Too much noise in simple environments can prevent learning entirely.
-
-## The Hidden Implementation Details
-
-Beyond these parameters, there are crucial implementation details that can make or break training:
-
-### Network Architecture Choices
-- **Convolutional layers**: Atari requires CNN feature extractors for visual input
-- **Layer normalization**: Can help with training stability but may hurt performance in some cases
-- **Activation functions**: ReLU is standard, but other choices can affect learning dynamics
-
-### Reward Scaling and Clipping
-- Many implementations clip rewards to [-1, 1] to prevent gradient explosion
-- Some environments need reward normalization to make learning feasible
-- The choice of reward preprocessing can dramatically affect convergence
-
-### Frame Stacking and Preprocessing
-- Atari typically uses 4 stacked frames to provide temporal information
-- Grayscale conversion and resizing affect what the agent can learn
-- Frame skipping (action repeat) affects the temporal resolution of control
-
-### Optimization Details
-- Adam optimizer is standard, but learning rate schedules matter
-- Gradient clipping prevents exploding gradients in unstable training
-- Weight initialization affects early learning dynamics
-
-## The Fundamental Challenge
-
-The hardest truth about deep RL is that **there is no universal set of hyperparameters**. What works for Atari will likely fail on continuous control. What works for dense rewards will fail with sparse rewards. This is why hyperparameter tuning often consumes 80% of research time in deep RL projects.
+The hardest truth about deep RL is that **there is no universal set of hyperparameters**. What works for Atari will likely fail on continuous control. What works for dense rewards will fail with sparse rewards. This is why hyperparameter tuning often consumes 80% of research time in deep RL projects. For example, I can tune hyperparameters to let DQN solve Cartpole environment, then I can deploy same set of hyperparameters to let DDQN also try. However, it can achieve worse results, despite being an improved version of DQN. 
 
 The field is actively working on solutions - from automatic hyperparameter tuning to more robust algorithms - but for now, success in deep RL requires patience, systematic experimentation, and a deep understanding of how each parameter affects the learning dynamics.
 
@@ -992,6 +837,15 @@ The insight that many states have similar values regardless of the action taken 
 
 ### **N-step Returns: Bridging the Gap**
 When eligibility traces proved incompatible with experience replay, **N-step returns** provided an elegant alternative, allowing the network to learn from multi-step experiences and achieve better bias-variance trade-offs.
+
+### **Distributional Reinforcement Learning: Beyond Expectations**
+Perhaps the most revolutionary conceptual breakthrough came with **Distributional RL**, which challenged the fundamental assumption that we should learn expected values. By learning entire return distributions instead of just their expectations, agents gained access to crucial information about uncertainty and risk. **Categorical DQN (C51)** demonstrated that this richer representation leads to more stable learning and better performance, while providing insights into the inherent variability of different state-action pairs.
+
+### **Noisy Networks: Intelligent Exploration**
+Moving beyond the crude randomness of $\epsilon$-greedy exploration, **Noisy Networks** introduced parameter space exploration that is both structured and learnable. By adding trainable noise to network parameters, agents learn not just what actions to take, but how and when to explore. This approach provides temporally consistent, state-dependent exploration that automatically balances exploration and exploitation as learning progresses.
+
+### **RAINBOW: The Synergistic Masterpiece**
+The culmination of these individual advances came with **RAINBOW DQN**, which demonstrated that careful integration of multiple improvements could achieve performance greater than the sum of its parts. RAINBOW's success established a template for systematic algorithmic development in deep RL, showing how targeted solutions to specific problems can be combined synergistically.
 
 ## The Practical Reality: Challenges and Limitations
 

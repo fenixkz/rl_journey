@@ -38,12 +38,12 @@ DEFAULT_CLASSIC_PARAMS = {
     # ----- COMMON PARAMS -----
     "max_steps": int(25e4),         # Increased for better convergence
     "gamma": 0.995,                 # Slightly higher for Box2D long-term rewards
-    "memory_size": int(1e5),        # Use smaller size to dicard old samples because they can be harmful
-    "learning_starts": int(1),    # No need to wait long
-    "batch_size": 256,              # Larger batch size for more stable gradients               
-    "lr": 3e-4,                     # We can use a higher lr
+    "memory_size": int(2e4),        # Use smaller size to dicard old samples because they can be harmful
+    "learning_starts": int(1),      # No need to wait long
+    "batch_size": 64,               # Larger batch size for more stable gradients               
+    "lr": 1e-4,                     # We can use a higher lr
     "learning_freq": 1,             # Box2D envs are fast, so no need to skip 
-    "hidden_dim": 32,               # Common value for small problems
+    "hidden_dim": 64,               # Common value for small problems
     # ----- TARGET NETWORK UPDATE PARAMS -----
     "hard_target_update": False, # Use either hard or soft update
     "target_update_freq": 1000, # We can update much faster
@@ -51,7 +51,7 @@ DEFAULT_CLASSIC_PARAMS = {
     # ----- EPSILON-GREEDY PARAMS -----
     "epsilon_decay_steps": int(1e4), # Quick exploration
     "max_epsilon": 1, 
-    "min_epsilon": 0.05, # To be more greedy 
+    "min_epsilon": 0.02, # To be more greedy 
     # ----- PRIORITIZED EXPERIENCE REPLAY PARAMS ----
     "alpha": 0.5,      # Alpha of PER
     "beta_start": 0.4, # Starting Beta of PER

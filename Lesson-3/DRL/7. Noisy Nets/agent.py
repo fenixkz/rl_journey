@@ -22,7 +22,8 @@ class AgentDQN(DQNBase):
         # Overwrite some specific params
         agent_config.memory = "per"
         agent_config.dueling = True 
-        agent_config.hard_target_update = False
+        agent_config.hard_target_update = False # Soft update might be better tbh
+        agent_config.memory_size = min(1e5, agent_config.memory_size)   # For PER we need a bigger buffer  
 
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari)
