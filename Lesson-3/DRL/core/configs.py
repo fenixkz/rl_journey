@@ -36,7 +36,7 @@ DEFAULT_ATARI_PARAMS = {
 
 DEFAULT_CLASSIC_PARAMS = {
     # ----- COMMON PARAMS -----
-    "max_steps": int(25e4),         # Increased for better convergence
+    "max_steps": int(4e5),         # Increased for better convergence
     "gamma": 0.995,                 # Slightly higher for Box2D long-term rewards
     "memory_size": int(2e4),        # Use smaller size to dicard old samples because they can be harmful
     "learning_starts": int(1e3),      # No need to wait long
