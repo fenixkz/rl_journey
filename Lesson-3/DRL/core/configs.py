@@ -51,12 +51,12 @@ DEFAULT_CLASSIC_PARAMS = {
     # ----- EPSILON-GREEDY PARAMS -----
     "epsilon_decay_steps": int(1e4), # Quick exploration
     "max_epsilon": 1, 
-    "min_epsilon": 0.01, # To be more greedy 
+    "min_epsilon": 0.05, # To be more greedy 
     # ----- PRIORITIZED EXPERIENCE REPLAY PARAMS ----
     "alpha": 0.5,      # Alpha of PER
     "beta_start": 0.4, # Starting Beta of PER
     "beta_final": 1,   # Final Beta of PER
-    "beta_increase_steps": int(1e5), # Total number of steps to increase beta from start to end
+    "beta_increase_steps": int(2e4), # Total number of steps to increase beta from start to end
     # ----- N-STEP RETURN PARAMS -----
     "n_step_return": 3, 
     # ----- DISTRIBUTIONAL PARAMS -----
