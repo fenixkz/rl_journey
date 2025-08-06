@@ -417,7 +417,7 @@ Let me give you an intuitive example. Imagine you're an agent deciding between t
 - **Action A**: Gives you exactly 10 points every single time
 - **Action B**: Gives you either 0 points (50% chance) or 20 points (50% chance)
 
-Both actions have the same expected value of 10 points. Using traditional Q-learning, your agent would see these actions as equivalent: $Q(s, A) = Q(s, B) = 10$. But are they really the same? Action A is safe and predictable, while Action B is risky but potentially more rewarding. In many scenarios, this distinction matters, but when we just represent the actions values as a single real number then this distinction is just erased!
+Both actions have the same expected value of 10 points. Using traditional Q-learning, your agent would see these actions as equivalent: $Q(s, A) = Q(s, B) = 10$. But are they really the same? Action A is safe and predictable, while Action B is risky but potentially more rewarding. In many scenarios, this distinction matters, depending on the problem you might want to prefer A over B or vice versa. However, when we just represent the actions values as a single real number then this distinction is just erased and we no longer can prefer anything!
 
 The fundamental issue is that **expected values throw away crucial information about uncertainty and risk**. When we collapse the entire distribution of possible returns into a single number, we lose the ability to reason about the variability of outcomes.
 
@@ -483,6 +483,65 @@ $$
 
 This ensures that the total probability mass is conserved during the projection.
 
+#### Concrete Example of the Projection Step
+
+Let's work through a numerical example to see exactly how this projection works:
+
+**Setup:**
+- We have $N = 5$ atoms (simplified for clarity)
+- $V_{min} = -10$, $V_{max} = 10$
+- Our support points are: $z_0 = -10$, $z_1 = -5$, $z_2 = 0$, $z_3 = 5$, $z_4 = 10$
+- Current probability distribution: $P = [0.1, 0.2, 0.4, 0.2, 0.1]$
+- Immediate reward: $r = 3$
+- Discount factor: $\gamma = 0.9$
+
+**The Projection Problem:**
+When we compute the distributional Bellman update, we need to shift our distribution by $r + \gamma z_i$:
+
+- $r + \gamma z_0 = 3 + 0.9 \times (-10) = 3 - 9 = -6$
+- $r + \gamma z_1 = 3 + 0.9 \times (-5) = 3 - 4.5 = -1.5$
+- $r + \gamma z_2 = 3 + 0.9 \times 0 = 3$
+- $r + \gamma z_3 = 3 + 0.9 \times 5 = 3 + 4.5 = 7.5$
+- $r + \gamma z_4 = 3 + 0.9 \times 10 = 3 + 9 = 12$
+
+**The Issue:** These shifted values $\{-6, -1.5, 3, 7.5, 12\}$ don't align with our original support $\{-10, -5, 0, 5, 10\}$!
+
+**The Solution - Projection:**
+
+1. **For $\hat{z}_0 = -6$:** Falls between $z_0 = -10$ and $z_1 = -5$
+   - $\left(\Phi \hat{Z}\right)_0 = \frac{-5 - (-6)}{-5 - (-10)} = \frac{1}{5} = 0.2$
+   - $\left(\Phi \hat{Z}\right)_1 = \frac{-6 - (-10)}{-5 - (-10)} = \frac{4}{5} = 0.8$
+   - Original probability $0.1$ gets split: $0.1 \times 0.2 = 0.02$ to $z_0$, $0.1 \times 0.8 = 0.08$ to $z_1$
+
+2. **For $\hat{z}_1 = -1.5$:** Falls between $z_1 = -5$ and $z_2 = 0$
+   - $\left(\Phi \hat{Z}\right)_1 = \frac{0 - (-1.5)}{0 - (-5)} = \frac{1.5}{5} = 0.3$
+   - $\left(\Phi \hat{Z}\right)_2 = \frac{-1.5 - (-5)}{0 - (-5)} = \frac{3.5}{5} = 0.7$
+   - Original probability $0.2$ gets split: $0.2 \times 0.3 = 0.06$ to $z_1$, $0.2 \times 0.7 = 0.14$ to $z_2$
+
+3. **For $\hat{z}_2 = 3$:** Falls between $z_2 = 0$ and $z_3 = 5$
+   - $\left(\Phi \hat{Z}\right)_2 = \frac{5 - 3}{5 - 0} = \frac{2}{5} = 0.4$
+   - $\left(\Phi \hat{Z}\right)_3 = \frac{3 - 0}{5 - 0} = \frac{3}{5} = 0.6$
+   - Original probability $0.4$ gets split: $0.4 \times 0.4 = 0.16$ to $z_2$, $0.4 \times 0.6 = 0.24$ to $z_3$
+
+4. **For $\hat{z}_3 = 7.5$:** Falls between $z_3 = 5$ and $z_4 = 10$
+   - $\left(\Phi \hat{Z}\right)_3 = \frac{10 - 7.5}{10 - 5} = \frac{2.5}{5} = 0.5$
+   - $\left(\Phi \hat{Z}\right)_4 = \frac{7.5 - 5}{10 - 5} = \frac{2.5}{5} = 0.5$
+   - Original probability $0.2$ gets split: $0.2 \times 0.5 = 0.1$ to $z_3$, $0.2 \times 0.5 = 0.1$ to $z_4$
+
+5. **For $\hat{z}_4 = 12$:** Falls outside our range! We clip it to the boundary $z_4 = 10$
+   - All probability $0.1$ goes to $z_4$
+
+**Final Result:**
+- $P'_0 = 0.02$
+- $P'_1 = 0.08 + 0.06 = 0.14$
+- $P'_2 = 0.14 + 0.16 = 0.30$
+- $P'_3 = 0.24 + 0.1 = 0.34$
+- $P'_4 = 0.1 + 0.1 = 0.20$
+
+**Verification:** $0.02 + 0.14 + 0.30 + 0.34 + 0.20 = 1.00$ ✓
+
+The projection perfectly preserves probability mass while mapping our shifted distribution back onto the fixed support!
+
 #### Why Does This Work So Well?
 
 You might wonder: "This seems like a lot of complexity just to get the same expected value in the end. Why bother?"
@@ -493,7 +552,7 @@ The answer lies in **richer representations and better learning dynamics**:
 
 2. **Improved Learning Dynamics**: The distributional approach often leads to more stable learning. Instead of a single target that can jump around dramatically, we have a distribution of targets that evolves more smoothly.
 
-3. **Multi-modal Returns**: Some state-action pairs might have genuinely multi-modal return distributions (e.g., "either you win big or lose big"). Traditional Q-learning would average these modes, potentially missing important structure.
+3. **Multi-modal Returns**: Some state-action pairs might have genuinely multi-modal return distributions (e.g., "you want to lose small, I want to win big"). Traditional Q-learning would average these modes, potentially missing important structure.
 
 4. **Risk-Sensitive Behavior**: With access to the full distribution, the agent can make risk-aware decisions. It can choose conservative actions when uncertainty is high or aggressive actions when it's confident about high returns.
 
