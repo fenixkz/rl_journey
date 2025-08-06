@@ -20,7 +20,8 @@ class AgentDQN(DQNBase):
         # Overwrite some specific params
         agent_config.memory = "per"
         agent_config.dueling = True 
-
+        agent_config.hard_target_update = False
+        
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari)
 
