@@ -39,7 +39,7 @@ DEFAULT_CLASSIC_PARAMS = {
     "max_steps": int(25e4),         # Increased for better convergence
     "gamma": 0.995,                 # Slightly higher for Box2D long-term rewards
     "memory_size": int(1e5),        # Use smaller size to dicard old samples because they can be harmful
-    "learning_starts": int(1e3),    # No need to wait long
+    "learning_starts": int(1),    # No need to wait long
     "batch_size": 256,              # Larger batch size for more stable gradients               
     "lr": 3e-4,                     # We can use a higher lr
     "learning_freq": 1,             # Box2D envs are fast, so no need to skip 
@@ -49,7 +49,7 @@ DEFAULT_CLASSIC_PARAMS = {
     "target_update_freq": 1000, # We can update much faster
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
-    "epsilon_decay_steps": int(5e4), # Quick exploration
+    "epsilon_decay_steps": int(1e4), # Quick exploration
     "max_epsilon": 1, 
     "min_epsilon": 0.05, # To be more greedy 
     # ----- PRIORITIZED EXPERIENCE REPLAY PARAMS ----
