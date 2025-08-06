@@ -45,8 +45,8 @@ DEFAULT_CLASSIC_PARAMS = {
     "learning_freq": 1,             # Box2D envs are fast, so no need to skip 
     "hidden_dim": 64,               # Common value for small problems
     # ----- TARGET NETWORK UPDATE PARAMS -----
-    "hard_target_update": False, # Use either hard or soft update
-    "target_update_freq": 1000, # We can update much faster
+    "hard_target_update": True, # Use either hard or soft update
+    "target_update_freq": 1500, # We can update much faster
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
     "epsilon_decay_steps": int(1e4), # Quick exploration
