@@ -82,7 +82,7 @@ def main(args):
     env = gym.wrappers.RecordEpisodeStatistics(env) 
     
     # Common hyperparams
-    mean_n = 50 # for performance tracking, calculate mean over this many episodes
+    mean_n = 20 # for performance tracking, calculate mean over this many episodes
     agent_config.seed = args.seed # Overwrite seed
 
     agent: DQNBase = registry.create_agent(agent_number, env, agent_config, env_config, is_atari)
