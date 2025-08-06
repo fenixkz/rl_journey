@@ -40,13 +40,13 @@ DEFAULT_CLASSIC_PARAMS = {
     "gamma": 0.995,                 # Slightly higher for Box2D long-term rewards
     "memory_size": int(2e4),        # Use smaller size to dicard old samples because they can be harmful
     "learning_starts": int(1),      # No need to wait long
-    "batch_size": 64,               # Larger batch size for more stable gradients               
+    "batch_size": 128,              # Larger batch size for more stable gradients               
     "lr": 1e-4,                     # We can use a higher lr
     "learning_freq": 1,             # Box2D envs are fast, so no need to skip 
     "hidden_dim": 64,               # Common value for small problems
     # ----- TARGET NETWORK UPDATE PARAMS -----
     "hard_target_update": True, # Use either hard or soft update
-    "target_update_freq": 5000, # We can update much faster
+    "target_update_freq": 3000, # We can update much faster
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
     "epsilon_decay_steps": int(1e4), # Quick exploration
