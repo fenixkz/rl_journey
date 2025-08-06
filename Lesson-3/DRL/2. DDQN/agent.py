@@ -68,7 +68,7 @@ class AgentDQN(DQNBase):
 
         # 7. Perform Gradient Descent Step
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=2.0)
+        torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=5.0)
         self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.item()

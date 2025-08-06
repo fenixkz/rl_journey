@@ -223,7 +223,7 @@ class AgentDQN(DQNBase):
         # 8. Perform Gradient Descent Step
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=2.0)
+        torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=5.0)
         self.optimizer.step()
         
         # 9. Update priorities in PER
@@ -238,7 +238,7 @@ class AgentDQN(DQNBase):
     def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
         rewards_log = deque(maxlen=mean_n_episodes)
         
-        obs, _ = self.env.reset(seed=self.seed)
+        obs, _ = self.env.reset()
         if self.is_atari: obs = self.auto_fire()
 
         pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})

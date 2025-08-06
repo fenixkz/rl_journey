@@ -60,12 +60,12 @@ class AgentDQN(DQNBase):
             
         # 6. Calculate loss using Huber Loss (Smooth L1 Loss)
         # This correctly implements the TD-error clipping from the Nature paper.
-        loss = F.smooth_l1_loss(td_target, actual_q_values)
+        loss = F.smooth_l1_loss(actual_q_values, td_target)
 
         # 7. Perform Gradient Descent Step
         self.optimizer.zero_grad()
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=2.0)
+        torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=5.0)
         self.optimizer.step()
         return loss.item()
     
