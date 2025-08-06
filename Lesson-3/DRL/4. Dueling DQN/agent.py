@@ -21,9 +21,8 @@ class AgentDQN(DQNBase):
         agent_config.memory = "per"
         agent_config.dueling = True 
         agent_config.n_step_return = 1
-        agent_config.hard_target_update = False # Soft update might be better tbh
-        agent_config.memory_size = min(1e5, agent_config.memory_size)   # For PER we need a bigger buffer     
-        
+        agent_config.memory_size = max(1e5, agent_config.memory_size)   # For PER we need a bigger buffer  
+
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari)
         self.name = "Dueling-Double-DQN-PER"

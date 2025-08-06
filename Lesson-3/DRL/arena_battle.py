@@ -18,6 +18,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train DQN-based RL agent on a single env for comparison.")
     parser.add_argument('--env', type=str, default="cartpole", help="Name of the environment to train on.")
     parser.add_argument('--seed', type=int, default = 224)
+    parser.add_argument('--start-from', type=int, default = 1)
     args = parser.parse_args()
     return args
 
@@ -44,7 +45,7 @@ def get_env_config(env_name: str) -> dict:
                     f"Available environments: {list(ATARI_CONFIGS.keys()) + list(CLASSIC_ENV_CONFIG.keys())}")
 
 def main(args):
-    for agent_number in range(1, 9):
+    for agent_number in range(args.start_from, 9):
         env_name = args.env
         env_config = get_env_config(env_name)
         env_id = env_config["env_id"]
