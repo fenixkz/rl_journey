@@ -37,32 +37,32 @@ DEFAULT_ATARI_PARAMS = {
 DEFAULT_CLASSIC_PARAMS = {
     # ----- COMMON PARAMS -----
     "max_steps": int(5e5),         # Increased for better convergence
-    "gamma": 0.995,                 # Slightly higher for Box2D long-term rewards
-    "memory_size": int(2e4),        # Use smaller size to dicard old samples because they can be harmful
+    "gamma": 0.99,                 # Slightly higher for Box2D long-term rewards
+    "memory_size": int(1e4),        # Use smaller size to dicard old samples because they can be harmful
     "learning_starts": int(1e3),      # No need to wait long
-    "batch_size": 256,              # Larger batch size for more stable gradients               
+    "batch_size": 128,              # Larger batch size for more stable gradients               
     "lr": 1e-4,                     # We can use a higher lr
     "learning_freq": 1,             # Box2D envs are fast, so no need to skip 
     "hidden_dim": 64,               # Common value for small problems
     # ----- TARGET NETWORK UPDATE PARAMS -----
     "hard_target_update": True, # Use either hard or soft update
-    "target_update_freq": 2500, # We can update much faster
+    "target_update_freq": 2000, # We can update much faster
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
-    "epsilon_decay_steps": int(1e4), # Quick exploration
+    "epsilon_decay_steps": int(2e4), # Quick exploration
     "max_epsilon": 1, 
     "min_epsilon": 0.02, # To be more greedy 
     # ----- PRIORITIZED EXPERIENCE REPLAY PARAMS ----
-    "alpha": 0.5,      # Alpha of PER
+    "alpha": 0.6,      # Alpha of PER
     "beta_start": 0.4, # Starting Beta of PER
     "beta_final": 1,   # Final Beta of PER
-    "beta_increase_steps": int(2e4), # Total number of steps to increase beta from start to end
+    "beta_increase_steps": int(4e4), # Total number of steps to increase beta from start to end
     # ----- N-STEP RETURN PARAMS -----
     "n_step_return": 3, 
     # ----- DISTRIBUTIONAL PARAMS -----
     "n_atoms": 51, # Number of atoms in the distribution
-    "v_min": -20,  # Minimum value of support
-    "v_max": 20,   # Maximum value of support
+    "v_min": -10,  # Minimum value of support
+    "v_max": 10,   # Maximum value of support
     # ---------- NOISY NET PARAMS -----
     "noisy_net": False, # In Box2D envs epsilon-greedy performs better in my practice
     "noise_std": 0.05, # Standard deviation for noise initialization
