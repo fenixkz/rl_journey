@@ -12,6 +12,7 @@ from core.DQNBase import DQNBase
 from core.configs import AgentConfig
 from core.policies import NoisyFC, NoisyCNN, NoisyDuelingFC, NoisyDuelingCNN
 import time
+from rich import print as pprint
 
 class AgentDQN(DQNBase):
     '''
@@ -230,5 +231,5 @@ class AgentDQN(DQNBase):
             if timeout is not None and time.time() - start_time > timeout*60:
                 print("[bold red] Timeout has expired, finishing the training...") 
                 break
-            
+
         pbar.close()

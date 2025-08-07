@@ -1046,6 +1046,6 @@ The DQN family has shown us the incredible potential of combining deep learning 
 
 This naturally leads us to the next major branch of deep RL: **policy-based methods** and **actor-critic algorithms**. These methods directly learn policies rather than value functions, opening the door to continuous control, more sample-efficient learning, and sophisticated exploration strategies.
 
-As we prepare for this next chapter, remember that the journey from tabular Q-learning to sophisticated deep RL algorithms like DQN represents one of the most remarkable achievements in modern AI. You now understand not just how these algorithms work, but why they were designed the way they were—and that understanding will serve as a solid foundation for everything that comes next.
+As we prepare for this next chapter, remember that the journey from tabular Q-learning to sophisticated deep RL algorithms like DQN represents one of the most remarkable achievements in modern AI. You now understand not just how these algorithms work, but why they were designed the way they were - and that understanding will serve as a solid foundation for everything that comes next.
 
-The transition from value-based to policy-based methods isn't about replacing what we've learned—it's about expanding our toolkit to handle an even broader range of challenges in the fascinating world of reinforcement learning.
+The transition from value-based to policy-based methods isn't about replacing what we've learned - it's about expanding our toolkit to handle an even broader range of challenges in the fascinating world of reinforcement learning.

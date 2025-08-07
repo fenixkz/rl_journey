@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from core.DQNBase import DQNBase
 from core.configs import AgentConfig
 import time
+from rich import print as pprint
 
 class AgentDQN(DQNBase):
     '''
@@ -97,7 +98,7 @@ class AgentDQN(DQNBase):
         td_errors = torch.abs(actual_q_values - td_target)
         
         # 7. Apply importance sampling weights to correct for prioritized sampling bias
-        weighted_loss = weights * F.smooth_l1_loss(actual_q_values, td_target, reduction='none')
+        weighted_loss = weights * F.mse_loss(actual_q_values, td_target, reduction='none')
         loss = weighted_loss.mean()
 
         # 8. Perform Gradient Descent Step

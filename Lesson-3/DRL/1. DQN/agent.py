@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from core.DQNBase import DQNBase
 from core.configs import AgentConfig
 import time
+from rich import print as pprint
 
 class AgentDQN(DQNBase):
     '''
@@ -61,7 +62,7 @@ class AgentDQN(DQNBase):
             
         # 6. Calculate loss using Huber Loss (Smooth L1 Loss)
         # This correctly implements the TD-error clipping from the Nature paper.
-        loss = F.smooth_l1_loss(actual_q_values, td_target)
+        loss = F.mse_loss(actual_q_values, td_target)
 
         # 7. Perform Gradient Descent Step
         self.optimizer.zero_grad()

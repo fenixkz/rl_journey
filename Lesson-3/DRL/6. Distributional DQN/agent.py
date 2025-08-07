@@ -12,6 +12,7 @@ from core.DQNBase import DQNBase
 from core.configs import AgentConfig
 from core.policies import DistributionalFC, DistributionalCNN, DistributionalDuelingFC, DistributionalDuelingCNN
 import time
+from rich import print as pprint
 
 class AgentDQN(DQNBase):
     '''

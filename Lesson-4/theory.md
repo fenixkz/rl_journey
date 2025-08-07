@@ -1,6 +1,6 @@
-# Policy learning
+# Introduction to RL. Part 4. Policy-Based Reinforcement Learning.
 
-We have studied a significant portion of Reinforcement Learning (RL) where we focused on Value-Based Learning. This name originates from the fact that our learning process primarily revolved around estimating the action-value function $Q(s,a)$. Using these estimates, we could then derive a policy (typically a greedy or $\epsilon$-greedy policy), where for any given state $s$, we would choose the action corresponding to the highest $Q(s,a)$ value. So, although we were implicitly arriving at a optimal policy, we weren't learning the policy parameters directly. This chapter of RL explores how we can work with policies directly.
+We have studied a significant portion of Reinforcement Learning (RL) where we focused on Value-Based Learning. This name originates from the fact that our learning process primarily revolved around estimating the action-value function $Q(s,a)$. Using these estimates, we could then derive a policy (typically a greedy or $\epsilon$-greedy policy), where for any given state $s$, we would choose the action corresponding to the highest $Q(s,a)$ value. So, although we were implicitly arriving at a optimal policy, we weren't learning the policy parameters directly. This chapter of RL explores how we can use policies and more importantly how we can improve them.
 
 One key advantage of directly learning a policy is that it can naturally handle continuous action spaces (where finding a $\max_a Q(s,a)$ is impossible) and can learn truly stochastic policies, which can be optimal in certain situations.
 
@@ -8,17 +8,19 @@ One key advantage of directly learning a policy is that it can naturally handle 
 
 Let's recall that our policy $\pi(a | s)$ is a probability distribution over all possible actions $a$ that agent can perform given that the agent is in state $s$. How are we able to learn it?
 
-First of all, in policy-based methods, our policy $\pi_\theta(a|s)$ is typically represented by a function approximator, like a neural network, parameterized by $\theta$. This network takes the state $s$ as input and outputs a probability distribution over all actions (for discrete actions) or parameters for a continuous distribution (e.g., mean and standard deviation for a Gaussian). Then, we sample from this distribution to choose an action, making the whole action selection process stochastic.
+First of all, in policy-based methods, our policy $\pi_\theta(a|s)$ is typically represented by a function approximator, like a neural network, parameterized by $\theta$ (same as in CEM, ES, or DQN). This network takes the state $s$ as input and outputs a probability distribution over all actions (for discrete actions) or parameters for a continuous distribution (e.g., mean and standard deviation for a Gaussian). Then, we sample from this distribution to choose an action, making the whole action selection process stochastic.
 
 This contrasts with standard DQN. While DQN uses an $\epsilon$-greedy policy for exploration during training (which is stochastic), its ultimate learned optimal policy is deterministic: once Q-values converge, it always chooses the action with the highest Q-value from the same state. Policy Gradient (PG) methods, however, can learn inherently stochastic optimal policies.
 
+### Stochastic vs Deterministic
+
 Let us build some intuition about why stochastic policies can sometimes be better or worse.
 
-It's easy to see cases where stochastic policies might seem problematic. Imagine you are driving towards a tree; the action we must take is to turn to avoid the crash. If our policy is stochastic, due to random sampling, it might still choose the action that corresponds to moving straight, which would be disastrous! (Though a well-trained stochastic policy would assign very low probability to such an action).
+It's easy to see cases where stochastic policies might seem problematic. Imagine you are driving towards a tree; the action we must take is to turn to avoid the crash. If our policy is stochastic, due to random sampling, it might still choose the action that corresponds to moving straight, which would be disastrous! (Though a well-trained stochastic policy would assign very low probability to such an action, but it is never zero).
 
 On the other hand, there are cases when using a deterministic policy is a clear disadvantage. Imagine playing Rock-Paper-Scissors. Playing a deterministic policy means making the same move every time (or a predictable sequence). This is a bad idea because your opponent can easily adapt and win. So, playing a somewhat random (stochastic) strategy can achieve better results in the long run against an adaptable opponent.
 
-Another significant advantage of directly learning a stochastic policy is that it naturally incorporates exploration. In DQN, we had to construct schemes like $\epsilon$-greedy to explicitly choose random actions with some probability $\epsilon$. With a stochastic policy $\pi_\theta(a|s)$, the agent inherently tries different actions based on their learned probabilities, providing a more natural way to explore.
+Another significant advantage of directly learning a stochastic policy is that it naturally incorporates exploration. In DQN, we had to construct schemes like $\epsilon$-greedy to explicitly choose random actions with some probability $\epsilon$. With a stochastic policy $\pi_\theta(a|s)$, the agent inherently tries different actions based on their learned probabilities, providing a more natural way to explore. Something like we saw in Noisy Net in the previous lecture.
 
 Okay, let's now see how we work directly with policies.
 
@@ -74,7 +76,7 @@ $$
 $$
 
 
-The term $\nabla_\theta p(\tau; \theta)$ is tricky to work with directly, as $p(\tau; \theta)$ is a complex product of probabilities. However, we can use a clever identity known as the log-derivative trick (or likelihood ratio trick). Recall that for any differentiable positive function $f(x)$, its derivative $\nabla_x f(x)$ can be rewritten using its logarithm: $\nabla_x \log f(x) = \frac{1}{f(x)} \nabla_x f(x)$. Rearranging this gives $\nabla_x f(x) = f(x) \nabla_x \log f(x)$.
+The term $\nabla_\theta p(\tau; \theta)$ represents a probability of ending up with this specific trajectory using our policy. But it is tricky to work with directly, as $p(\tau; \theta)$ is a complex product of probabilities.  However, we can use a clever identity known as the log-derivative trick (or likelihood ratio trick). Recall that for any differentiable positive function $f(x)$, its derivative $\nabla_x f(x)$ can be rewritten using its logarithm: $\nabla_x \log f(x) = \frac{1}{f(x)} \nabla_x f(x)$. Rearranging this gives $\nabla_x f(x) = f(x) \nabla_x \log f(x)$.
 
 Applying this to our case (with $f(x) = p(\tau; \theta)$ and $x = \theta$):
 
@@ -103,9 +105,9 @@ $$
 p(\tau; \theta) = p(s_0) \prod_{t=0}^{T-1} \pi_\theta(a_t | s_t) p(s_{t+1} | s_t, a_t)
 $$
 
-Or in other words, it's the probability of the initial state times the cumulative product of the probabilities of each action we took (given the state we were in) and the probabilities of the environment transitioning to the next state (given our state and action).
+Or in other words, it's the probability of the initial state times the cumulative product of the probabilities of each action we took (given the state we were in) and the probabilities of the environment transitioning to the next state (given our state and action). The only thing that we know is $\pi_\theta(a_t | s_t)$ which is basically the output of our neural network. I wish there was a way to get rid of these other terms...
 
-The logarithm has a wonderful property: $\log(X \cdot Y) = \log X + \log Y$. Applying this:
+Luckily, the logarithm has a wonderful property: $\log(X \cdot Y) = \log X + \log Y$. Applying this:
 
 $$
 \log p(\tau; \theta) = \log p(s_0) + \sum_{t=0}^{T-1} \left( \log \pi_\theta(a_t | s_t) + \log p(s_{t+1} | s_t, a_t) \right)
@@ -122,7 +124,7 @@ This leaves us with a much simpler expression:
 
 $\nabla_\theta \log p(\tau; \theta) = \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(a_t | s_t)$
 
-In other words, the gradient of the log-probability of a trajectory (with respect to our policy parameters) is simply the sum of the gradients of the log-probabilities of the actions taken in that trajectory! Incredible, right? These $\log \pi_\theta(a_t|s_t)$ terms are things our policy network computes (or are directly related to its outputs), and we can calculate their gradients.
+In other words, the gradient of the log-probability of a trajectory (with respect to our policy parameters) is simply the sum of the gradients of the log-probabilities of the actions taken in that trajectory! Incredible, right? Don't tell me wishes never come true again! These $\log \pi_\theta(a_t|s_t)$ terms are things our policy network computes (or are directly related to its outputs), and we can calculate their gradients.
 
 Substitute this expression for $\nabla_\theta \log p(\tau; \theta)$ back into Equation 1:
 
@@ -134,7 +136,7 @@ This is a widely known form of the **Policy Gradient Theorem**.
 
 We can even improve this further. We know that the action $a_t$ taken at time $t$ can only influence rewards from $r_{t+1}$ onwards; it cannot influence past rewards $r_1, \dots, r_t$. Therefore, when considering the impact of $\nabla_\theta \log \pi_\theta(a_t | s_t)$, it's more appropriate (and can reduce the variance of the gradient estimate) to multiply it by the return obtained from that step $t$ onwards, rather than the total return $R(\tau)$ for the whole trajectory.
 
-Let $G_t = \sum_{k=t}^{T-1} \gamma^{k-t} r_{k+1}$ be the discounted return starting from time step $t$ until the end of the episode.
+Let $G_t = \sum_{k=t}^{T-1} \gamma^{k-t} r_{k+1}$ be the discounted return starting from time step $t$ until the end of the episode/trajectory.
 
 The policy gradient can then be written as:
 
@@ -148,7 +150,7 @@ $$
 \theta \leftarrow \theta + \alpha \nabla_\theta J(\theta)
 $$
 
-Intuitively, this update rule can be understood as follows: if an action $a_t$ taken in state $s_t$ (which we sampled from $\pi_\theta(a|s_t)$) resulted in a good subsequent return ($G_t$ is high and positive), then we want to increase the log-probability $\log \pi_\theta(a_t | s_t)$ (and thus the probability itself) of taking that action $a_t$ in state $s_t$ again. Conversely, if it resulted in a bad return ($G_t$ is low or negative), we want to decrease its probability. By doing this iteratively for all actions taken in many trajectories, the policy should eventually converge towards one that produces higher overall returns.
+Intuitively, this update rule can be understood as follows: if an action $a_t$ taken in state $s_t$ (which we sampled from $\pi_\theta(a|s_t)$) resulted in a good subsequent return ($G_t$ is high and positive), then we want to increase the log-probability $\log \pi_\theta(a_t | s_t)$ (and thus the probability itself) of taking that action $a_t$ in state $s_t$ again. Conversely, if it resulted in a bad return ($G_t$ is low or negative), we want to decrease its probability. By doing this iteratively for all actions taken in many trajectories, the policy should eventually converge towards one that produces highest overall returns.
 
 ### Digesting the equations
 
@@ -241,11 +243,12 @@ The REINFORCE algorithm approximates the expectation $E_{\tau \sim \pi_\theta}[\
 
 REINFORCE is powerful because it directly optimizes the policy to maximize rewards, but it can have high variance in its gradient estimates due to its reliance on full Monte Carlo returns $G_t$. This high variance can make learning slow or unstable, which motivated later developments like Actor-Critic methods.
 
-### Some practical details
+## Practical details
 
 There is often a big gap between the elegant theory in a research paper and its practical implementation in code. To bridge this, researchers have continually experimented with techniques to improve training stability and convergence speed. Let's begin our discussion with one of the most fundamental of these improvements: normalization.
 
-#### Normalization
+### Normalization
+---
 
 The REINFORCE update rule is 
 
@@ -281,7 +284,8 @@ This is less of an issue if normalization is done across a large batch of divers
 
 In environments like CartPole, the reward signal (+1 per step) is very clear, and the state space isn't excessively complex. The raw returns $G_t$ already provide a decent learning signal. The massive variance that normalization helps combat in complex Atari games (with varying reward scales, sparse rewards, etc.) might not be as big of a villain in CartPole.
 
-#### Entropy Exploration 
+### Entropy Exploration 
+---
 
 There's another piece we often add to the loss function for the policy network: **entropy**.
 
@@ -317,9 +321,9 @@ It all comes down to the fundamental trade-off between exploitation (using the b
 
 Adding the entropy term to our loss function gives the agent a secondary objective. We are effectively telling it:
 
-"Your main job is to maximize rewards. However, I'll also give you a small bonus for keeping your options open and staying curious."
+> Your main job is to maximize rewards. However, I'll also give you a small bonus for keeping your options open and staying curious.
 
-This "curiosity bonus" discourages the policy from becoming too confident and deterministic too quickly. It pushes the agent to keep exploring, making it less likely to get stuck with a "good enough" strategy and more likely to find the truly optimal one—just like checking around the corner for that five-star restaurant. 
+This "curiosity bonus" discourages the policy from becoming too confident and deterministic too quickly. It pushes the agent to keep exploring, making it less likely to get stuck with a "good enough" strategy and more likely to find the truly optimal one - just like checking around the corner for that five-star restaurant. 
 
 People familiar with machine learning can think of this term as a regularization penalty. The regulartization helps the model not to overfit, which in our context means to be extremely confident in the action-choosing. 
 
@@ -342,9 +346,9 @@ Here:
 - $H(\pi_\theta(\cdot|s_t))$ is the entropy of the policy at state $s_t$.
 - $\beta$ (beta) is a small positive coefficient (a hyperparameter you tune) that controls the "strength" of the entropy bonus. How much do we care about exploration versus exploitation?
 
-When we take the gradient of this new objective with respect to $\theta$ and perform gradient ascent (or gradient descent on the negative objective), the entropy term adds an extra push. This "entropy gradient" encourages changes to $\theta$ that increase the entropy of the policy – that is, make the action probabilities more uniform.
+When we take the gradient of this new objective with respect to $\theta$ and perform gradient ascent (or gradient descent on the negative objective), the entropy term adds an extra push. This "entropy gradient" encourages changes to $\theta$ that increase the entropy of the policy - that is, make the action probabilities more uniform.
 
-### The Effect
+#### The Effect
 
 The agent is still primarily driven to maximize rewards (via the $G_t \log \pi_\theta(a_t|s_t)$ term). But now, it also gets a little "bonus reward" for being exploratory.
 
@@ -456,9 +460,10 @@ How does the Critic learn $V_\phi(s_t)$? As you guessed correctly, using Tempora
 
 For each step the Actor takes in the environment, resulting in a transition $(s_t, a_t, r_{t+1}, s_{t+1})$, the Critic observes this transition and updates its value estimate $V_\phi(s_t)$, using the TD error:
 $$
-y_t = r_{t+1} + \gamma V_\phi(s_{t+1})
+y_t = r_{t+1} + \gamma V_\phi(s_{t+1}) \\
+\text{or if next state is terminal} \\
+y_t = r_{t+1}
 $$
-(If $s_{t+1}$ is a terminal state, then $V_\phi(s_{t+1})$ is 0, so $y_t = r_{t+1}$).
 
 - Calculate the TD Error for the Critic: This is the difference between the TD target and the Critic's current prediction for $s_t$:
 $$
@@ -475,7 +480,7 @@ $$
 
 (where $\alpha_C$ is the learning rate for the Critic).
 
-This is exactly the TD(0) learning algorithm for estimating state values that we've seen before!
+This is exactly the TD(0) learning algorithm for estimating state values that we've seen before like in DQN! The only difference is that we estimate only $V(s)$ and not $Q(s,a)$ for all possible actions.
 
 ### Connecting the Critic's Baseline to the Actor's Update
 
@@ -483,7 +488,7 @@ Now, how does this learned baseline $V_\phi(s_t)$ help the Actor? The Actor's po
 
 If the Actor uses Monte Carlo returns $G_t$ (like in REINFORCE with baseline), the update term becomes $(G_t - V_\phi(s_t))$. 
 
-But wait, $G_t$ is basically an estimate of $Q^\pi(s_t, a_t)$ (because it indicates what return does action $a_t$ taken in state $s_t$ yield and that is the definition of Q-value), and the critic estimates $V_\phi(s_t)$, so:
+Let's look closely at this term: $G_t$. It indicates what return does action $a_t$ taken in state $s_t$ yield if we follow our policy afterwards. Does it sound familiar to you? It is exactly the definition of Q-value. So, it means that:
 
 $$
 G_t - V_\phi(s_t) = Q^\pi(s_t, a_t) - V_\phi(s_t) = A^\pi(s_t, a_t)
@@ -502,6 +507,13 @@ $$
 A^\pi(s_t, a_t) \approx \delta_t
 $$
 
+Okay, I think we made a juge leap. Time to slow down a little. Let's recap once again.
+
+1. We make a step in the environment and we collect $(s_t, a_t, r_{t+1}, s_{t+1})$
+2. We ask our critic, $\phi$, to estimate the state-value of $s_t$: $V_\phi(s_t)$
+3. We compute the TD-target as $r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$
+4. We compute the TD-error $\delta_t$
+
 This single value, $\delta_t$, serves two purposes at once:
 
 - For the Critic: We square it ($\delta_t^2$) to calculate the loss for updating the Critic's parameters, $\phi$.
@@ -511,6 +523,9 @@ This single value, $\delta_t$, serves two purposes at once:
 The Actor then uses this Advantage estimate to update its policy parameters $\theta$:
 
 $$
+
+
+\nabla_\theta J(\theta) = E_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{T-1} A_t \nabla_\theta \log \pi_\theta(a_t | s_t) \right] \tag{4} \\
 \theta \leftarrow \theta + \alpha_A \cdot \delta_t \cdot \nabla_\theta \log \pi_\theta(a_t \mid s_t)
 $$
 
@@ -535,7 +550,7 @@ Okay, so far, so good. More data, more diverse data, faster training – sounds 
 
 Now, with our A3C setup and all these Naruto clones (workers) running around:
 
-Each worker grabs a copy of the global policy parameters $\theta_{global}$ to its local brain $\theta_{local}$. It then goes off into its own instance of the environment and collects a bunch of experiences (s,a,r,s′) using its $\theta_{local}$. After a bit, it calculates gradients $∇θ_{local}$ and sends them up to update $\theta_{global}$.
+Each worker grabs a copy of the global policy parameters $\theta_{global}$ to its local brain $\theta_{local}$. It then goes off into its own instance of the environment and collects a bunch of experiences $(s_t, a_t, r_{t+1}, s_{t+1})$ using its $\theta_{local}$. After a bit, it calculates gradients $∇θ_{local}$ and sends them up to update $\theta_{global}$.
 
 **Here’s the potential hiccup:**
 
@@ -543,10 +558,10 @@ Worker #1 (Naruto Clone Prime) starts its adventure with $\theta_{local}$ copied
 
 So, by the time Worker #1 is ready to send its gradients, $\theta_{global}$ update, the global policy might already be different from the $\theta_{global}$ it originally copied to its $\theta_{local}$! The policy it used to gather data ($\theta_{local}$) isn't exactly the same as the most current global policy.
 
-Is A3C On-Policy or Off-Policy Then? And Why Does It Still Work?
+**Is A3C On-Policy or Off-Policy Then? And Why Does It Still Work?**
 
 This is a classic "well, it's complicated... but not really" situation.
-Technically, because of that delay and the continuous updates to the global network from other workers, the data each worker uses to compute its gradients is generated by a policy ($\theta_{local}$) that can be slightly "stale" compared to the absolute latest $\theta_{global}$. So, A3C is not a strictly on-policy algorithm. Does it mean that we cannot use it? Of course not.
+Technically, because of that delay and the continuous updates to the global network from other workers, the data each worker uses to compute its gradients is generated by a policy $\theta_{local}$ that can be slightly "stale" compared to the absolute latest $\theta_{global}$. So, A3C is not a strictly on-policy algorithm. Does it mean that we cannot use it? Of course not.
 
 A3C showed impressive results and that is probably why:
 
@@ -571,21 +586,27 @@ But let's think for a moment, why do we really care that the algorithm is on-pol
 
 ### On-Policy vs Off-Policy
 
-Okay, let's introduce some terms for better and clearer understanding. Our policy $\pi_\theta$ is the brain that decides what actions it should take given that it is in some state. To train an RL agent, we need to gather data. To gather data, the agent has to interact with the environment, which means picking actions, performing them, and observing the reward and the resulting state. When the agent is gathering data, it is using a "behavior policy"—in other words, the version of its $\pi_\theta$ that was used to collect the data.
+Okay, let's introduce some terms for better and clearer understanding. Our policy $\pi_\theta$ is the brain that decides what actions it should take given that it is in some state. To train an RL agent, we need to gather data. To gather data, the agent has to interact with the environment, which means picking actions, performing them, and observing the reward and the resulting state. When the agent is gathering data, it is using a "behavior policy" - in other words, the version of its $\pi_\theta$ that was used to collect the data.
 
-After data is collected, say a single $(s_t, a_t, r_{t+1}, s_{t+1})$ tuple, we want to use it to improve our policy. The policy that we are going to improve we will call the "target policy"—the version of our $\pi_\theta$ that we are going to update (via backpropagation, for example).
+After data is collected, say a single $(s_t, a_t, r_{t+1}, s_{t+1})$ tuple, we want to use it to improve our policy. The policy that we are going to improve we will call the "target policy" - the version of our $\pi_\theta$ that we are going to update (via backpropagation, for example).
 
 An algorithm is considered on-policy if the target and behavior policies are the same. In other words, the agent updates the same version of $\pi_\theta$ that it used to gather the data. We have seen this in REINFORCE, where we used the same policy for data gathering and updating.
 
 An algorithm is considered off-policy if the target and behavior policies are not guaranteed to be the same. In other words, the agent updates its current $\pi_\theta$ with data gathered by an older version of itself. We saw this in our DQN chapter, where we gathered data, stored it in a replay buffer, and then sampled from that buffer to update the network.
 
-Now, why do scholars care so much about this distinction?
+**Now, why should we care so much about this distinction?**
 
-The first and main reason is that the standard Policy Gradient theorem does not work directly with off-policy data. Think about it: the gradient for an on-policy method like Actor-Critic is $Advantage \times \nabla \log \pi(a|s)$. This formula explicitly says, "Given the action $a$ that was just sampled from our current policy $\pi$, what is the gradient of its log-probability?" If you feed this formula an action from a replay buffer that was taken by an old policy, the entire premise is violated. The gradient is no longer a valid direction for improvement and becomes meaningless noise.
+- The first and main reason is that the standard Policy Gradient theorem does not work directly with off-policy data. 
 
-So how does learning work for off-policy methods? Their learning is rooted in the principles of value-based learning. The update for an off-policy method like DQN or SAC is based on the Bellman equation: $Target = r + \gamma \cdot Q(s', a')$. This formula learns the value of a state-action pair. It doesn't care which policy generated the $(s, a, r, s')$ tuple. It can learn the correct value for any transition, whether it came from an old policy, a random policy, or an expert policy. This is what makes it compatible with a replay buffer.
+    Think about it: the gradient for an on-policy method like Actor-Critic is $Advantage \times \nabla \log \pi(a|s)$. This formula explicitly says, "Given the action $a$ that was just sampled from our current policy $\pi$, what is the gradient of its log-probability?" If you feed this formula an action from a replay buffer that was taken by an old policy, the entire premise is violated. The gradient is no longer a valid direction for improvement and becomes meaningless noise.
 
-The second reason is that on-policy algorithms have the unique property of higher stability. The stability comes from the fact that the update is always directly relevant to the current policy. The gradient is a low-variance, "true" signal for improvement. This property makes on-policy algorithms much more stable than their counterparts. Off-policy algorithms can be unstable because learning from "stale" data can be dangerous. The algorithm has to correct for the fact that the old data wasn't generated by the current policy. This is why state-of-the-art algorithms like SAC and TD3 need so many tricks (twin critics, target networks) to avoid divergence.
+    **So how does learning work for off-policy methods?**
+
+    Their learning is rooted in the principles of value-based learning. The update for an off-policy method like DQN or SAC is based on the Bellman equation: $Target = r + \gamma \cdot Q(s', a')$. This formula learns the value of a state-action pair. It doesn't care which policy generated the $(s, a, r, s')$ tuple. It can learn the correct value for any transition, whether it came from an old policy, a random policy, or an expert policy. This is what makes it compatible with a replay buffer.
+
+- The second reason is that on-policy algorithms have the unique property of higher stability. 
+
+    The stability comes from the fact that the update is always directly relevant to the current policy. The gradient is a low-variance, "true" signal for improvement. This property makes on-policy algorithms much more stable than their counterparts. Off-policy algorithms can be unstable because learning from "stale" data can be dangerous. The algorithm has to correct for the fact that the old data wasn't generated by the current policy. This is why state-of-the-art algorithms like SAC and TD3 need so many tricks (twin critics, target networks) to avoid divergence.
 
 This sounds like on-policy methods are the obvious choice, but then why would anyone use off-policy methods? The answer is the single most important trade-off in modern RL: sample efficiency.
 
@@ -656,8 +677,12 @@ $$
 
 So, GAE is nothing else but a exponentially-weighted average of single-step returns at different steps.
 
-- $\lambda = 0$: $A_t^{GAE} = \sum_{k=0}^\infin (\gamma*0)^k \delta_{t+k} = \delta_{t} $. So if lambda is zero, then GAE is simply a single step return at current step
-- $\lambda = 1$: $A_t^{GAE} = \sum_{k=0}^\infin \gamma^k \delta_{t+k}$ which is an infinite sum, but V terms are cancelling out resulting in $ \sum_{k=0}^\infin \gamma^k r_{t+k+1} - V(s_t) = G_t - V(s_t)$. So if lambda is 1, then GAE is a monte-carlo return.
+- $\lambda = 0$: $A_t^{GAE} = \sum_{k=0}^\infin (\gamma \cdot 0)^k \delta_{t+k} = \delta_{t} $. 
+
+    So if lambda is zero, then GAE is simply a single step return at current step
+- $\lambda = 1$: $A_t^{GAE} = \sum_{k=0}^\infin \gamma^k \delta_{t+k}$ which is an infinite sum, but V terms are cancelling out resulting in $ \sum_{k=0}^\infin \gamma^k r_{t+k+1} - V(s_t) = G_t - V(s_t)$. 
+
+    So if lambda is 1, then GAE is a monte-carlo return.
 
 By choosing a value for λ between 0 and 1 (a common value is 0.95), we get a sophisticated blend of all possible k-step estimators. It gives more weight to the immediate TD-error but still incorporates information from many steps into the future, without being as noisy as a full Monte Carlo return.
 
@@ -702,11 +727,11 @@ This synchronous "collect-then-update" cycle leads to a more stable gradient est
 
 In summary, while A3C was a revolutionary idea that showed the power of parallel data collection, A2C quickly became the standard because it better aligns with modern hardware (GPUs) and offers a more stable and simpler implementation.
 
-#### A2C pipeline
+## A2C
 
 Okay, so how does A2C actually work in practice? The key is to stop thinking about individual workers and instead think about operating on batches of data at every step.
 
-First, we need a new object that wraps our N copies of the environment. This object, often called a Vectorized Environment (VecEnv), is the magic behind A2C's simplicity. From the agent's perspective, it looks like a single environment, but every time you call step(), it sends one action to each of its N internal environments and returns a batch of N observations.
+First, we need a new object that wraps our N copies of the environment. This object, often called a Vectorized Environment (`VecEnv`), is the magic behind A2C's simplicity. From the agent's perspective, it looks like a single environment, but every time you call `step()`, it sends one action to each of its N internal environments and returns a batch of N observations.
 
 With this tool, we can define a clear, synchronous pipeline. Let's use an analogy: think of A2C as a perfectly synchronized rowing team.
 
@@ -716,41 +741,59 @@ With this tool, we can define a clear, synchronous pipeline. Let's use an analog
 
 The entire process can be broken down into two distinct phases: data collection and learning.
 
-**Phase 1: The Rollout (Collecting a Batch of Stories)**
----
+### Phase 1: The Rollout
+
 In this phase, the agent's only job is to act according to its current policy and gather a rich batch of experiences. No learning happens yet.
 
-1. Initialize: The coxswain gets the initial state from all N rowers at once. This is a batch of states with shape $(N, \text{observation\_dimension})$.
+1. **Initialize** 
 
-2. Collect M-Step Trajectories: We now run a loop for a fixed number of steps, $M$ (e.g., $M=20$), to collect a "rollout".
+    The coxswain gets the initial state from all N rowers at once. This is a batch of states with shape `[N, observation_dimension]`.
 
-3. Get Actions: The coxswain (agent) looks at the current batch of $N$ states and, using the Actor network, decides on a batch of $N$ actions to take.
+2. **Collect M-Step Trajectories** 
 
-4. Step the Environments: The coxswain shouts the command, and all $N$ rowers (environments) take their assigned action in unison by calling $\text{env.step()}$.
+    We now run a loop for a fixed number of steps, $M$ (e.g., $M=20$), to collect a "rollout".
 
-5. Gather Feedback: The agent receives a batch of feedback: $N$ next states, $N$ rewards, and $N$ done flags.
+3. **Get Actions** 
 
-6. Store Everything: The agent stores all the information from this step—the states, the actions taken, the rewards received, and critically, the log-probabilities of the actions ($\log \pi(a|s)$)—in a temporary buffer.
+    The coxswain (agent) looks at the current batch of $N$ states and, using the Actor network, decides on a batch of $N$ actions to take.
+
+4. **Step the Environments** 
+
+    The coxswain shouts the command, and all $N$ rowers (environments) take their assigned action in unison by calling `env.step()`.
+
+5. **Gather Feedback** 
+
+    The agent receives a batch of feedback: $N$ next states, $N$ rewards, and $N$ done flags.
+
+6. **Store Everything** 
+
+    The agent stores all the information from this step - the states, the actions taken, the rewards received, and critically, the log-probabilities of the actions $\log \pi(a|s)$ - in a temporary buffer.
 
 After looping $M$ times, our buffer now contains $M$ sets of $N$ transitions, which can be thought of as a large collection of $N \times M$ experiences.
 
-**Phase 2: The Update (Reviewing the Game Tape)**
----
+### Phase 2: The Update 
+
 Now that the rollout is complete, the entire team stops rowing. It's time for the coxswain (agent) to review what just happened and update the team's strategy. This happens in a single, large, synchronous update.
 
-1. Calculate Returns and Advantages: The agent looks at the $N \times M$ experiences it just collected. It calculates the discounted return ($G_t$) and the advantage estimate either using GAE or not ($A_t \approx \delta_t$) for every single step in the buffer. By looking ahead $M$ steps, it gets a much more stable and less biased estimate of the advantage compared to just looking one step ahead.
+1. **Calculate Returns and Advantages**
 
-2. Compute Losses: Using this batch of advantages and the stored log-probabilities, the agent computes a single, aggregate loss value for the Actor and a single loss value for the Critic.
+    The agent looks at the $N \times M$ experiences it just collected. It calculates the discounted return $G_t$ and the advantage estimate $A_t \approx \delta_t$ for every single step in the buffer. By looking ahead $M$ steps, it gets a much more stable and less biased estimate of the advantage compared to just looking one step ahead.
 
-3. Apply Gradients: Finally, the agent calls $\text{.backward()}$ on these losses and takes one single optimization $\text{step()}$ to update the weights of its Actor and Critic networks.
+2. **Compute Losses**
+
+    Using this batch of advantages and the stored log-probabilities, the agent computes a single, aggregate loss value for the Actor and a single loss value for the Critic.
+
+3. **Apply Gradients** 
+
+    Finally, the agent calls `.backward()` on these losses and takes one single optimization `step()` to update the weights of its Actor and Critic networks.
 
 Once the update is complete, the new, improved strategy is ready, and the entire process repeats, starting with a new rollout from Phase 1.
 
-Now because we have just onle policy and all the parallel environments step in the synchronous manner, the data gather is on-policy and we do not need to care about PG theorem now working! And more importantly we just made the learning pipeline much simpler to implement.
+Now because we have just onle policy and all the parallel environments step in the synchronous manner, the data gather is on-policy and we do not need to care about PG theorem not working! And more importantly we just made the learning pipeline much simpler to implement.
 
 ## Policy Update Stability
 
-All right, we have studied both variants of policy gradients: Stochastic and Deterministic. But in the foundation, both of these approaches aim to do the same thing: update our policy $\pi_\theta$ by updating its parameters $\theta$ in a direction that should increase rewards (or the advantage). The basic idea is: if an action led to a good outcome, make it more likely; if it led to a bad outcome, make it less likely.
+All right, we have seen that using parallel environments we can improve the efficiency of training. But still, the main idea behind learning remains: if an action led to a good outcome, make it more likely; if it led to a bad outcome, make it less likely.
 
 $$
 \theta \leftarrow \theta + \alpha \cdot (\text{Some\_Goodness\_Score}) \cdot \nabla_\theta \log \pi_\theta(a_t | s_t)
@@ -785,9 +828,8 @@ $$
 
 (where $\delta_\mathrm{KL}$ is a small constant defining the size of the trust region).
 
-While TRPO was very effective and produced stable learning, it had a downside: it was relatively complex to implement. Solving that constrained optimization problem often involved approximations and second-order optimization methods (like the conjugate gradient algorithm), which are not as straightforward as typical gradient descent.
+While TRPO was very effective and produced stable learning, it had a downside: it was relatively complex to implement. Solving that constrained optimization problem often involved approximations and second-order optimization methods, which are not as straightforward as typical gradient descent.
 
----
 
 ## Simplicity and Stability: PPO
 
@@ -819,9 +861,11 @@ What does this ratio tell us?
 - If $r_t(\theta) < 1$: This means our new policy $\pi_\theta$ makes action $a_t$ less likely in state $s_t$. For example, if $\pi_{\theta_{\text{old}}}(a_t|s_t) = 0.5$ and $\pi_\theta(a_t|s_t) = 0.25$, then $r_t(\theta) = 0.5$. The new policy is half as likely to pick that action.
 - If $r_t(\theta) = 1$: The probability of taking action $a_t$ in state $s_t$ hasn't changed between the old and new policies.
 
-If you are confused at this point, let's digest an important point of PPO. You might think, how is it possible that we have old and new policies in on-policy algorithms? This is where things get interesting. In a strict on-policy algorithm like A2C, you're right, we don't really have a notion of an "old" and "new" policy; we collect data, update once and then discard this data. But PPO's key innovation is to reuse that same batch of data for multiple updates. It's this reuse that creates the need for the old vs. new policy distinction within an on-policy framework.
+If you are confused at this point, let's digest an important point of PPO. You might think, **how is it possible that we have old and new policies in on-policy algorithms?**
 
-This is different from truly off-policy methods like DDPG, which use a large Replay Buffer to store data gathered by many past versions of the policy. Proximal Policy Optimization uses the importance sampling ratio, yet it's still considered an on-policy algorithm. So, let's see how that's possible!
+This is where things get interesting. In a strict on-policy algorithm like A2C, you're right, we don't really have a notion of an "old" and "new" policy; we collect data, update once and then discard this data. But PPO's key innovation is to reuse that same batch of data for multiple updates. It is this reuse that creates the need for the old vs. new policy distinction within an on-policy framework.
+
+This is different from truly off-policy methods like DQN, which use a large Replay Buffer to store data gathered by many past versions of the policy. Proximal Policy Optimization uses the importance sampling ratio, yet it's still considered an on-policy algorithm. So, let's see how that's possible!
 
 ### Adding ratio to PPO objective
 
@@ -859,15 +903,15 @@ $$
 
 has a major limitation: it's strictly **on-policy**. This means the data (the actions and advantages) used to calculate the gradient must have been collected using the exact same policy $\pi_\theta$ that we are trying to improve.
 
-However, PPO is designed to be more sample-efficient. We want to collect a batch of data with an old, fixed policy ($\pi_{\theta_{\text{old}}}$) and then update our current policy ($\pi_\theta$) for several steps using that same data. This is an **off-policy** setup.
-
-So the central question is: **How can we evaluate our new policy $\pi_\theta$ using data generated by the old policy $\pi_{\theta_{\text{old}}}$?**
+However, PPO is designed to be more sample-efficient. We want to collect a batch of data with an old, fixed policy $\pi_{\theta_{\text{old}}}$ and then update our current policy $\pi_\theta$ for several steps using that same data. This is an **off-policy** setup.
+ 
+So the central question is: **How can we evaluate our new policy $\pi_\theta$ using data generated by the old policy $\pi_{\theta_{\text{old}}}$?** Remember Prioritized Experience Replay and what we did to solve similar problem?
 
 ---
 
-#### The Solution: Importance Sampling
+### Importance Sampling
 
-**Importance Sampling** provides the mathematical bridge. It's a technique that allows us to calculate the expected value of a function under a new probability distribution ($p$) using samples drawn from an old distribution ($q$). The formula is:
+**Importance Sampling** provides the mathematical bridge. It's a technique that allows us to calculate the expected value of a function under a new probability distribution $p$ using samples drawn from an old distribution $q$. The formula is:
 
 $$
 \mathbb{E}_{x \sim p}[f(x)] = \mathbb{E}_{x \sim q}\left[\frac{p(x)}{q(x)} f(x)\right]
@@ -895,7 +939,7 @@ This shows that our surrogate objective is a valid way to estimate the performan
 
 ---
 
-#### The Gradient: The Final Piece of the Puzzle
+### The Gradient: The Final Piece of the Puzzle
 
 The final check is to ensure that the gradient of our new surrogate objective is related to the original policy gradient we started with. Let's find the gradient of $L(\theta)$. Remember that $\hat{A}_t$ and $\pi_{\theta_{\text{old}}}$ are just constants from our collected data; the only variable is $\theta$ in $\pi_\theta$.
 
@@ -912,8 +956,24 @@ $$
 Substituting this back into our gradient equation gives:
 
 $$
-\nabla_\theta L(\theta) = \mathbb{E}_t [\hat{A}_t \cdot r_t(\theta) \cdot \nabla_\theta \log \pi_\theta(a_t|s_t)]
+\nabla_\theta L(\theta) = \mathbb{E}_t [\hat{A}_t \cdot r_t(\theta) \cdot \nabla_\theta \log \pi_\theta(a_t|s_t)]  \tag{5}
 $$
+
+Okay, this formula look quite similar to the equation (4), the only difference is this term $r_t(\theta)$. To understand why the gradient is unaffected by this term, we have to understand how exactly learning happens in PPO.
+
+Here is the simple pipeline:
+
+1. We gather data (rollouts) using our policy $\pi_\theta$. 
+
+    Let's say we are using 1-step advantage: $(s_0, a_0, r_1, s_1, \log \pi_\theta(a_0|s_0))$
+
+2. We use that data to calculate gradients and update the policy to obtain a $\pi_\theta^{new}$. 
+
+    The whole trick is to let us train not only one time on this sample, but as much as we want. Let say we want to train our network two times on this sample. We calculate the gradient using formula (5) for the first time. What is the value of $r_t(\theta)$? It is exactly 1! Why? Because we have not changed the policy yet, it is only the first step of the update. So, in the beginning our ratio is equal to 1. 
+
+3. Now we want to re-use that data to update the $\pi_\theta^{new}$ again. 
+    
+    So, now after the first training step, our policy has changed. It is no longer the same as it was when this sample was collected, but we still want to re-use it for training. In strict on-policy algorithms it is impossible, but due to importance sampling we can do it here! The $r_t(\theta)$ part of the objective function obviously is not 1 anymore, but something different.
 
 Now, let's look at this at the very start of our optimization step, when our new policy is identical to our old one ($\theta = \theta_{\text{old}}$). At this point, the ratio $r_t(\theta)$ is exactly 1. Therefore:
 
@@ -921,27 +981,15 @@ $$
 \nabla_\theta L(\theta_{\text{old}}) = \mathbb{E}_t [\hat{A}_t \cdot 1 \cdot \nabla_\theta \log \pi_{\theta_{\text{old}}}(a_t|s_t)] = \nabla_\theta J(\theta_{\text{old}})
 $$
 
-The gradients are identical! This proves that $r_t(\theta)\hat{A}_t$ is a valid surrogate objective. It's a first-order approximation of the true objective that is perfectly accurate when the new policy is the same as the old one. The entire purpose of the PPO clipping mechanism is to ensure that $\pi_\theta$ doesn't move too far from $\pi_{\text{old}}$, so that this approximation remains reliable.
-
-To unpack it, here is the simple pipeline:
-
-1. We gather data (rollouts) using our policy $\pi_\theta$
-2. We use that data to calculate gradients and update the policy to obtain a $\pi_\theta^{new}$. 
-
-    To update the policy we have to calculate the gradients for the surrogate objective function. Given the formula $\nabla_\theta L(\theta) = \mathbb{E}_t [\hat{A}_t \cdot r_t(\theta) \cdot \nabla_\theta \log \pi_\theta(a_t|s_t)]$, we can see that the $r_t(\theta)$ part is exactly equal to 1, simply because our policies have not yet changed, they are the same! So, the gradients that we use to update $\theta$ are: $\nabla_\theta L(\theta) = \mathbb{E}_t [\hat{A}_t \cdot \nabla_\theta \log \pi_\theta(a_t|s_t)]$ and that is the same formula that we used in A2C! 
-
-3. Now we want to re-use that data to update the $\pi_\theta^{new}$ again. 
-    
-    So, now we have data that we collected using old version of our policy $\pi_\theta^{old}$, and we want to use that data to update the new version. In strict on-policy algorithms it is impossible, but due to importance sampling we can do it here! The $r_t(\theta)$ part of the objective function is not 1 anymore, but something different. And that is where the surrogate objective function comes in play. It means that we can run several update loop using the same batch of data and not violate on-policy rules all thanks to importance sampling! 
+The gradients are identical! This proves that $r_t(\theta)\hat{A}_t$ is a valid surrogate objective. Well, to be more concrete it's a first-order approximation of the true objective. But given the amount of benefits this surrogate function gives (re-using data for better training), I think we can make peace of it being not 100% accurate but only an approximation. 
 
 **So, in the nutshell, PPO uses some techniques from off-policy algorithms (for better data efficiency), but due to importance sampling it is still belongs to on-policy family methods.**
     
 ---
 
-
 Okay, let's understand $r_t(\theta) \hat{A}_t$ with some intuition:
 
-The core of the PPO objective is the product of the probability ratio and the advantage: $\hat{A}_t \cdot r_t(\theta)$. Our goal is always to maximize this value. Let's see how this simple goal cleverly handles all scenarios.
+The core of the PPO objective is the product of the probability ratio and the advantage: $\hat{A}_t \cdot r_t(\theta)$. Our goal is always to maximize this value. Let's see how this simple goal handles all scenarios.
 
 - **Case 1: The Advantage $Â_t$ is POSITIVE (a good action was taken)**
 
@@ -960,10 +1008,10 @@ The core of the PPO objective is the product of the probability ratio and the ad
 
   - **The Result**: The optimizer will always push the policy to make bad actions less likely. If the policy foolishly makes a bad action more likely (so $r_t(θ) > 1$), it creates a large negative objective. The clearest path to improvement is to reduce the ratio, again forcing a correction.
 
-In essence, the surrogate objective function creates a "hill" for the optimizer to climb. No matter where the policy is on that hill, the slope (the gradient) always points in the same, correct direction: towards increasing the probability of good actions and decreasing the probability of bad ones.
 
+Sounds good, right? But initially we were discussing the "dangers of taking big steps"! So, **what happens if the policy update tries to make $r_t(\theta)$ huge?**
 
-Sounds good, right? But initially we were discussing the "Dangers of Taking 'Too Big' a Step"! So, what happens if the policy update tries to make $r_t(\theta)$ huge?
+### The clipped surrogate objective function
 
 Imagine $\hat{A}_t$ is positive and large. The optimization process might try to make $\pi_\theta(a_t|s_t)$ extremely large (close to 1) and assume that $\pi_{\theta_{\text{old}}}(a_t|s_t)$ was small, leading to a massive $r_t(\theta)$. This could result in an enormous update step, potentially overshooting and destabilizing our policy.
 
@@ -971,16 +1019,15 @@ This unconstrained surrogate objective $L_{\text{SURROGATE}}(\theta)$ doesn't ha
 
 And don't worry, the autors of PPO came up with a very clever and simple solution. The solution was just to clip this ratio!
 
-### The clipped surrogate objective function
 
 The PPO masterminds thought, "What if we let the ratio $r_t(\theta)$ do its thing, but only within a certain 'safe' range?" If it tries to go outside this range, we'll just... well, clip it!
 
-**Step 1: Defining the "Safe Zone" with Epsilon ($\epsilon$)**
+1. **Defining the "Safe Zone" with Epsilon ($\epsilon$)**
 
 PPO introduces a small hyperparameter, usually called $\epsilon$ (epsilon), typically set to something like 0.1 or 0.2. This $\epsilon$ defines our "trust region" or "allowed deviation" from a ratio of 1.  
 The idea is that we're generally okay with the new policy being, say, 10% to 20% more or less likely to take an action than the old policy ($1 \pm \epsilon$). Beyond that, we get suspicious.
 
-**Step 2: The Clipped Ratio**
+2. **The Clipped Ratio**
 
 We take our probability ratio $r_t(\theta)$ and clip it:
 
@@ -994,7 +1041,7 @@ This clip function does exactly what it sounds like:
 - If $r_t(\theta)$ is greater than $1+\epsilon$, then $\text{clipped\_ratio}_t(\theta)$ becomes $1+\epsilon$. (It can't go higher).
 - If $r_t(\theta)$ is less than $1-\epsilon$, then $\text{clipped\_ratio}_t(\theta)$ becomes $1-\epsilon$. (It can't go lower).
 
-**Step 3: The PPO Clipped Surrogate Objective $L_{\text{CLIP}}(\theta)$**
+3. **The PPO Clipped Surrogate Objective $L_{\text{CLIP}}(\theta)$**
 
 Now, PPO crafts its objective by taking the minimum of two terms:
 
@@ -1007,9 +1054,6 @@ $$
 L_{\text{CLIP}}(\theta)= \hat{\mathbb{E}}_t \left[ \min\left(r_t(\theta) \hat{A}_t, \text{clip}(r_t(\theta),1-\epsilon,1+\epsilon) \hat{A}_t \right) \right]
 $$
 
-We are still trying to maximize this $L_{\text{CLIP}}(\theta)$.
-
----
 
 ### The Big Picture for $L_{\text{CLIP}}(\theta)$
 
@@ -1020,9 +1064,11 @@ By taking the minimum of the "normal" objective and the "clipped" objective, PPO
 
 This clipping mechanism is surprisingly simple yet incredibly effective at stabilizing training. It ensures that the policy changes in a more gradual and controlled manner, making PPO much less sensitive to hyperparameter choices and more robust overall compared to older policy gradient methods.
 
+---
+
 On hidden detail for people without big expertise in deep learning is how exactly does PPO prevents the radical policy updates. If a data sample from batch results in ratio > $1+\epsilon$ and positive advantage, then the clip becomes active and replaces the $r_t$ term with a constant $1+\epsilon$. Because the objective function is now a multiplication of two constants, then it means that the gradients are all zero. Or in other words, the data samples that forces the algorithm to clip the ratio contribute no effect to weight updates. 
 
-And if we consider a case where the ratio > $1+\epsilon$, but the advantage is negative, we can see the magic of min operator. The result of $r_t \cdot A$ is going to be less than $1+\epsilon \cdot A$, so min operator chooses the first term and gradients will flow and update the policy weights.  
+And if we consider a case where the ratio > $1+\epsilon$, but the advantage is negative, we can see the magic of min operator. The result of $r_t A_t$ is going to be less than $(1+\epsilon)  A_t$, so min operator chooses the first term and gradients will flow and update the policy weights.  
 
 ---
 
