@@ -10,6 +10,7 @@ from collections import deque
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from core.DQNBase import DQNBase
 from core.configs import AgentConfig
+import time
 
 class AgentDQN(DQNBase):
     '''
@@ -114,7 +115,7 @@ class AgentDQN(DQNBase):
         # Increment step counter for beta annealing
         self.step_count += 1
 
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
+    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
         rewards_log = deque(maxlen=mean_n_episodes)
         
         obs, _ = self.env.reset()
@@ -124,6 +125,7 @@ class AgentDQN(DQNBase):
         
         episode = 0
         learning_steps = 0
+        start_time = time.time()
 
         for global_step in pbar:
             action = self.choose_action(obs)
@@ -181,5 +183,9 @@ class AgentDQN(DQNBase):
             # Log out the metrics
             postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A", "eps": f"{self.epsilon:.3f}"}
             pbar.set_postfix(postfix)
-        
+            
+            if timeout is not None and time.time() - start_time > timeout*60:
+                print("[bold red] Timeout has expired, finishing the training...") 
+                break
+
         pbar.close()

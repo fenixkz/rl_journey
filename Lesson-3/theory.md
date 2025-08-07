@@ -470,7 +470,7 @@ where $\stackrel{d}{=}$ means "equal in distribution." This equation says that t
 
 But here's where it gets tricky: how do we represent and learn these distributions using neural networks? On one hand we can use something like Gaussian Distribution to represent the all possible Q-values for any (state, action) pairs. But that means that the network will have to work with infinite possible returns. Instead it is more computationally efficient to create something like a histogram of Q-values.
 
-## Categorical DQN: Discretizing the Distribution
+### Categorical DQN: Discretizing the Distribution
 
 The first practical solution was **Categorical DQN** (C51), which discretizes the return distribution into a fixed number of "atoms" or bins. Here's how it works:
 
@@ -488,7 +488,7 @@ The first practical solution was **Categorical DQN** (C51), which discretizes th
    - Shift it by the immediate reward: $r + \gamma z_i$
    - Project it back onto our fixed support (since $r + \gamma z_i$ might not align with our predefined atoms)
 
-### The Projection Step: Where the Magic Happens
+### The Projection Step
 
 The projection step is where Categorical DQN shows its ingenuity. When we compute $r + \gamma z_i$, this shifted value rarely lands exactly on one of our predefined atoms. So we need to distribute its probability mass to the nearest atoms.
 
@@ -500,7 +500,7 @@ $$
 
 This ensures that the total probability mass is conserved during the projection.
 
-### Concrete Example of the Projection Step
+### Example of the Projection Step
 
 Let's work through a numerical example to see exactly how this projection works:
 
@@ -511,6 +511,8 @@ Let's work through a numerical example to see exactly how this projection works:
 - Current probability distribution: $P = [0.1, 0.2, 0.4, 0.2, 0.1]$
 - Immediate reward: $r = 3$
 - Discount factor: $\gamma = 0.9$
+
+It means that we assume that the Q-values of that state are in range from [-10, 10] and we are not anymore looking for a single value. We are representing Q-values as a probability distribution of being either [-10, -5, 0, 5, 10]. 
 
 **The Projection Problem:**
 When we compute the distributional Bellman update, we need to shift our distribution by $r + \gamma z_i$:
@@ -573,6 +575,90 @@ The answer lies in **richer representations and better learning dynamics**:
 
 4. **Risk-Sensitive Behavior**: With access to the full distribution, the agent can make risk-aware decisions. It can choose conservative actions when uncertainty is high or aggressive actions when it's confident about high returns.
 
+### Some practical details
+
+Combining Distributional RL with Double DQN or Dueling DQN or N-step is not troublesome, it is pretty straightforward. The only difference is that the network now computes not a scalar but a vector (distribution). Let's review an example of CartPole.
+
+The state consists of 4 values and there are only two actions. Previously, in DQN our network would do something like this: 
+
+1. Accept `[B, 4]` tensor (batched states)
+2. Output `[B, 2]` tensor (batches Q-values per each action)
+
+Our logic of picking action was just by picking an index of the highest Q-value of each instance in the batch.
+
+Now, our network output slightly changes:
+
+1. Accept `[B, 4]` tensor (batched states)
+2. Output `[B, 2, 51]` tensor (batches probability distribution of Q-values per each action, assuming 51 atoms) 
+
+How can we pick an action if we don't have numbers to compare and pick the highest? The answer is simple: we just take the expected value of each distribution and that is our Q-value. 
+
+---
+
+One more detail that must be discussed: Loss. In DQN we used L2 loss (or Smooth L1 loss), but here we shifted our regression task towards classification task, so do we still use the same loss? No.
+
+We are using the loss that works with probability distributions: **Cross-Entropy loss**. Let's recap the pipeline:
+
+1. We pass a batch of next-states to the online network and get as a result `[B, 2, 51]` tensor
+2. We compute the expected value of each distribution to get `[B, 2]` tensor of Q-values
+3. We pick the index of the highest Q-value
+4. We pass a batch of next-states to the target network and get as a result `[B, 2, 51]` tensor
+5. We get `T = [B, 51]` tensor of batched probability distributions of actions that online network thinks are the best
+6. We shift this `[B, 51]` by rewards and scale by gamma, since shifted and scaled distribution can be outside of our atoms (bins) we project it.
+7. We pass a batch of current-states to the online network and get as a result `[B, 2, 51]` tensor
+8. We pick `S = [B, 51]` tensor of batches distribution of the actions that were taken in these states
+9. We compute a cross-entropy loss between `S` and `T` as: $-T \cdot log(S)$
+
+---
+
+**The `log_softmax` Trick for Stability**
+
+You might have noticed that in many modern deep learning models, especially for classification, people use `log_softmax` instead of the more intuitive softmax. Our distributional network is essentially a classifier - it's trying to classify the Q-value into one of 51 atomic "bins." So, why bother with the logarithm?
+
+The answer comes down to two key things: numerical stability and efficiency.
+
+- **The Naive Way: softmax then log**
+
+    Let's first look at the straightforward approach, which is what the CleanRL code does.
+
+    - Network Output: Your network outputs raw scores (logits) for each atom: a `[B, 2, 51]` tensor.
+
+    - Get Probabilities: You apply a softmax function to get a valid probability distribution where all values are between 0 and 1 and sum to 1.
+
+    - Calculate Loss: The cross-entropy loss requires you to compute `-(target_dist * log(predicted_dist))`. This means you have to take the `log()` of the probabilities from step 2.
+
+This seems fine, but it hides a nasty numerical trap. If the network is very confident that an atom has zero probability, the softmax output for that atom will be very close to 0. Taking log(0) results in negative infinity (-inf), which makes your loss explode to NaN and kills the training process. This is why the many codes need a small hack to prevent this:
+
+```Python
+# The manual "hack" to avoid log(0)
+log_pred = torch.log(pred_dist.clamp(min=1e-5, max=1 - 1e-5)) 
+```
+
+- **The Smart Way: `log_softmax`**
+
+    Now let's look at the more robust method.
+
+    - Network Output: Your network outputs the same raw logits as before.
+
+    - Get Log-Probabilities: Instead of `softmax`, you apply `F.log_softmax` directly to the logits. The network's output is now the logarithm of the probabilities.
+
+    - Calculate Loss: The loss calculation becomes simpler and safer. Since you already have the log-probabilities, you just multiply them by the target distribution: `loss = -(target_dist * predicted_log_dist)`.
+
+The log_softmax function is a single, fused operation that is implemented with a mathematical trick (the Log-Sum-Exp trick). It calculates the final result without ever computing values that could overflow to inf or underflow to log(0). It completely removes the need for the `.clamp()` hack. The only thing to remember is to do `.exp()` to map the log-probabilities to true probabilities.
+
+---
+
+**Calculating TD-error for updating priorities in experience replay**
+
+Right, so previously we were using TD-error (calculated via L2 loss) as our priority for experience replay. How can we calculate them without L2 loss now?
+
+There are two ways to do so:
+
+1. Take expectation of source and target tensor (`S` and `T` from example above) to get Q-values. Subtract one from another, take the absolute value and use it as new priority. This is the simple and yet effictive way.
+2. Use the cross-entropy loss calculated above as the measure of new priority.
+
+    The logic is that the cross-entropy loss is the most accurate measure of the "error" or "surprise" for a distributional agent. It doesn't just measure the difference in the average outcome; it measures how different the entire shape of the predicted probability distribution is from the target distribution. A high loss signifies a big surprise, meaning the agent's understanding of that state-action pair was very wrong. Therefore, that experience should have a high priority.
+
 ### The Empirical Results
 
 The results were striking. Categorical DQN didn't just match the performance of traditional DQN - it significantly outperformed it across a wide range of Atari games. More importantly, the learned return distributions revealed fascinating insights about the structure of different games. In some games, the distributions were narrow and concentrated (low uncertainty), while in others they were broad and multi-modal (high uncertainty).
@@ -605,27 +691,105 @@ $$
 
 Let's break this down into simple terms. Think of the network trying to make a decision.
 
-- $\mu$: The "Best Guess" or Core Strategy. This is the main, learnable part of the network ($\mu^w$ for weights, $\mu^b$ for biases). After training, this represents the agent's best understanding of the optimal policy. You can think of it as the agent's primary, deterministic plan.
+- **$\mu$ or agent's core strategy** 
 
-- $\epsilon$: The "Random Idea" or Quirky Suggestion. This is just a vector of random noise that we sample from a standard distribution. It provides a random direction to deviate from the main plan. Think of it as a random "what if we tried this instead?" suggestion that gets injected into the system.
+    This is the main, learnable part of the network ($\mu^w$ for weights, $\mu^b$ for biases). After training, this represents the agent's best understanding of the optimal policy. You can think of it as the agent's primary, deterministic plan.
 
-- $\sigma$: The "Confidence Knob" or Exploration Scale. This is the most brilliant part. $\sigma$ is a set of parameters that the network learns. It acts like a volume knob for the random epsilon vector. The agent learns to turn this knob up or down based on its experience.
+- **$\epsilon$ or random idea**
 
-If the agent is in a state where it's uncertain, it can learn to increase $\sigma$, amplifying the noise and encouraging it to explore different actions.
+    This is just a vector of random noise that we sample from a standard distribution. It provides a random direction to deviate from the main plan. Think of it as a random "what if we tried this instead?" suggestion that gets injected into the system.
 
-If the agent is in a familiar state where it's very confident, it can learn to decrease $\sigma$ towards zero, effectively silencing the noise and sticking to its main plan $\mu$.
+- **$\sigma$ or exploration scale** 
 
-So, the final weight used in the calculation is essentially: (Best Guess + Confidence Knob * Random Idea).
+    This is the most brilliant part. This sigma is a set of parameters that the network learns. It acts like a volume knob for the random epsilon vector. The agent learns to turn this knob up or down based on its experience.
+
+So, the logic is as follows:
+
+- If the agent is in a state where it's uncertain, it can learn to increase $\sigma$, amplifying the noise and encouraging it to explore different actions.
+
+- If the agent is in a familiar state where it's very confident, it can learn to decrease $\sigma$ towards zero, effectively silencing the noise and sticking to its main plan $\mu$.
+
+The final weight used in the calculation is essentially: (Core Strategy + Confidence Knob * Random Idea).
 
 The truly powerful insight here is that the network isn't just learning the optimal policy $\mu$; it's also learning how and when to explore by tuning the noise scale $\sigma$. This allows for much more intelligent, state-dependent exploration than the simple, random approach of epsilon-greedy.
 
-### Two Flavors of Noise: Independent vs Factorized
+### Gradient flow
+
+Okay, it is probably a point of confusion. How does the neural network knows which states are well-known and which are not, how does it know when to decrease exploration scale and when to increase. Let's see the gradient flow. 
+
+During training, we want to minimize a loss function $L$ (e.g., the Mean Squared Bellman Error in DQN). The gradients of the loss with respect to the learnable parameters ($\mu$ and $\sigma$) are calculated via backpropagation.
+
+Let's focus on the gradient for a single weight $W_{ji}$ (connecting input neuron $i$ to output neuron $j$) and its corresponding bias $b_j$. The gradient of the loss $L$ with respect to any parameter $\theta$ is found using the chain rule:
+
+$$\frac{\partial L}{\partial \theta} = \sum_k \frac{\partial L}{\partial y_k} \frac{\partial y_k}{\partial \theta}$$
+
+Let's denote the incoming gradient from the next layer (or the loss function), $\frac{\partial L}{\partial y_j}$, as $g_j$. We can now find the partial derivatives of the output $y_j$ with respect to each of the four learnable parameters associated with it.
+
+The output of a single neuron $j$ is:
+
+$$y_j = \sum_i W_{ji} x_i + b_j = \sum_i (\mu_{ji}^w + \sigma_{ji}^w \cdot \epsilon_{ji}^w) x_i + (\mu_j^b + \sigma_j^b \cdot \epsilon_j^b)$$
+
+#### 1. Gradient with respect to the weight mean, $\mu_{ji}^w$:
+
+To find $\frac{\partial y_j}{\partial \mu_{ji}^w}$, we treat all other parameters as constants.
+
+$$\frac{\partial y_j}{\partial \mu_{ji}^w} = x_i$$
+
+Therefore, the full loss gradient for the weight mean is:
+
+$$\frac{\partial L}{\partial \mu_{ji}^w} = g_j \cdot x_i$$
+
+#### 2. Gradient with respect to the weight standard deviation, $\sigma_{ji}^w$:
+
+To find $\frac{\partial y_j}{\partial \sigma_{ji}^w}$, we again treat other parameters as constants.
+
+$$\frac{\partial y_j}{\partial \sigma_{ji}^w} = \epsilon_{ji}^w \cdot x_i$$
+
+Therefore, the full loss gradient for the weight standard deviation is:
+
+$$\frac{\partial L}{\partial \sigma_{ji}^w} = g_j \cdot (\epsilon_{ji}^w \cdot x_i)$$
+
+#### 3. Gradient with respect to the bias mean, $\mu_j^b$:
+
+$$\frac{\partial y_j}{\partial \mu_j^b} = 1$$
+
+Therefore, the full loss gradient for the bias mean is:
+
+$$\frac{\partial L}{\partial \mu_j^b} = g_j$$
+
+#### 4. Gradient with respect to the bias standard deviation, $\sigma_j^b$:
+
+$$\frac{\partial y_j}{\partial \sigma_j^b} = \epsilon_j^b$$
+
+Therefore, the full loss gradient for the bias standard deviation is:
+
+$$\frac{\partial L}{\partial \sigma_j^b} = g_j \cdot \epsilon_j^b$$
+
+### How the Updates Differ
+
+By comparing the resulting gradients, the mathematical distinction becomes clear:
+
+### Update for $\mu$ (Core Strategy)
+The gradient $\frac{\partial L}{\partial \mu_{ji}^w} = g_j \cdot x_i$ is identical to the gradient for a standard deterministic weight in a linear layer. It updates the baseline, deterministic behavior of the network based on the input activation $x_i$ and the error signal $g_j$.
+
+### Update for $\sigma$ (Exploration Scale)
+The gradient $\frac{\partial L}{\partial \sigma_{ji}^w} = g_j \cdot \epsilon_{ji}^w \cdot x_i$ contains the additional term $\epsilon_{ji}^w$. This term is the specific random number that was sampled and used for that weight in that forward pass.
+
+This means the update to $\sigma$ is directly modulated by the random perturbation that was just attempted.
+
+- If a specific perturbation $\epsilon_{ji}^w$ led to a better-than-expected outcome (i.e., the sign of $g_j$ aligns with the sign of $\epsilon_{ji}^w$ to produce a positive update for $\sigma$), the gradient will increase the value of $\sigma_{ji}^w$, encouraging more exploration for that weight.
+
+- Conversely, if the perturbation led to a worse outcome, the gradient will push $\sigma_{ji}^w$ towards zero, suppressing future exploration for that weight.
+
+The gradient descent algorithm does not need to "know" which parameter was responsible; the mathematical structure of the partial derivatives naturally assigns the updates according to each parameter's distinct role in the forward pass computation.
+
+### Noise: Independent vs Factorized
 
 There are two ways to sample the noise:
 
 1. **Independent Gaussian**: Each weight gets its own independent noise sample. This gives maximum flexibility but requires more random number generation.
 
-2. **Factorized Noise** (The Clever Shortcut): This is the method used in the original paper and is much more efficient. Instead of generating noise for every single connection, we generate just two small random vectors: one for the input neurons and one for the output neurons. We then combine them to create the full noise matrix.
+2. **Factorized Noise**: This is the method used in the original paper and is much more efficient. Instead of generating noise for every single connection, we generate just two small random vectors: one for the input neurons and one for the output neurons. We then combine them to create the full noise matrix.
 
 Let's make that concrete. Imagine a layer with 3 input neurons and 2 output neurons. The full noise matrix needs to be [2, 3].
 
@@ -646,7 +810,7 @@ We combine them with an outer product. This just means we multiply each element 
 
 The benefit is huge. We only had to generate 3 + 2 = 5 random numbers instead of 6. For a big 512x512 layer, that's the difference between generating 1,024 numbers versus over 262,000. This shortcut dramatically reduces the computational cost while still producing a rich, structured noise that works exceptionally well for exploration. It's the standard, go-to approach for Noisy Nets.
 
-### Why This is Better Than $\epsilon$-Greedy
+### Why This is Better
 
 1. **State-dependent Exploration**: The network learns to explore more in uncertain states and less in well-understood states. This is because the noise affects the entire forward pass, and the learned noise parameters can adapt to different situations.
 
@@ -656,7 +820,7 @@ The benefit is huge. We only had to generate 3 + 2 = 5 random numbers instead of
 
 4. **Action Diversity**: Instead of uniform random selection, the noisy network provides structured exploration that's informed by the current value estimates.
 
-#### The Learning Dynamics
+### The Learning Dynamics
 
 Here's what makes noisy networks particularly clever: **the noise parameters are updated using the same gradients as the mean parameters**. When the agent discovers a good action through noisy exploration, the gradient update not only reinforces the mean parameters toward that action but also adjusts the noise parameters appropriately.
 
@@ -668,15 +832,21 @@ Integrating Noisy Nets into a modern DQN agent like Rainbow requires careful att
 
 First, the most obvious step is replacing the standard `nn.Linear` layers in the final parts of your network (typically after the convolutional base) with your new `NoisyLinear` layers. This is what injects the trainable noise into the decision-making process.
 
-This leads to a critical implementation question: if the noise is for exploration, should our target network also be noisy? The answer is a firm no. The entire purpose of the target network is to provide a stable, low-variance anchor for our Bellman updates. Adding noise to the target would re-introduce the very instability we are trying to prevent. The standard and most effective practice is to use a deterministic target network. This is easily achieved by putting the target network into evaluation mode `target_network.eval()` right after its creation, which disables the noise generation in its layers.
+However, a critical danger with Noisy Nets is the "certainty trap." An agent can quickly become confident in a suboptimal policy, leading to predictably low rewards. Because the outcomes are no longer surprising, the TD error drops to near zero. The network interprets this as high certainty and learns to decrease its noise parameter $\sigma$, effectively halting exploration and trapping the agent. To mitigate this and ensure a stable start, a common practice is to implement a warm-up period. For the first N thousand steps (a parameter often called learning_starts), the agent takes purely random actions to populate its replay buffer. This provides a diverse foundation of experience, preventing the agent from immediately converging to a poor local optimum before it has had a chance to see a broader range of possibilities.
 
-This brings us to the second crucial question, which relates to the Double DQN update rule. When we select the best action for the next state, we use the online network: `argmax Q_online(s', a')`. Should this action selection be noisy? Here, the answer is yes. The noise in the online network represents the agent's current exploratory policy. Therefore, we should use the noisy online network to select the action, as this reflects the agent's current belief about the best action under its exploration strategy.
+But more importantly to review these two critical implementation question: 
+- **If the noise is for exploration, should our target network also be noisy?**
+- **When we select the best action for the next state, we use the online network: `argmax Q_online(s', a')`. Should this action selection be noisy?**
 
-This leads to the elegant "Noisy Action, Stable Value" principle for the learning update:
+Here, the answer is contraversial. The noise in the online network represents the agent's current exploratory policy. Therefore, we should use the noisy online network to select the action, as this reflects the agent's current belief about the best action under its exploration strategy.
 
-- Select Action: Use the noisy online network to find the best action for the next state.
+On the other hand, the main Q-learning update rule is to assign to current Q-value the immediate reward plus the discounted optimal value of the next state. The optimal value represents the biggest Q-value. Exploration noise can make the online network to pick the wrong action which can lead to non-optimal next state value. So, in this sense, we should not use noisy nets. 
 
-- Evaluate Value: Use the deterministic target network to get a stable estimate of the value of that chosen action.
+Same with the target network. The entire purpose of the target network is to provide a stable, low-variance anchor for our Bellman updates. Adding noise to the target would re-introduce the very instability we are trying to prevent. 
+
+My logic and intuition says that we should disable noise when we are calculating target for TD-error. However, the de-facto official implementation of [RAINBOW](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/rainbow_atari.py) is not doing that. So, I don't have a concrete answer for you. I guess it depends, you should experiment yourself to see the difference.
+
+---
 
 Another important detail that might seem strange at first: after each learning update, we must reset the noise in our network. Why do we do this? If the noise is what drives exploration, why would we constantly change it?
 
@@ -690,17 +860,6 @@ Let's break down the logic:
 
 - Preventing Stagnation: If we never reset the noise, the agent would have one fixed "quirky" personality for its entire lifetime. It would be stuck with its initial random set of preferences and would not truly explore. By resetting the noise after each gradient update, we give the agent a new "personality" for the next round of data collection.
 
-The process is therefore a cycle:
-
-- Reset Noise: The agent gets a new, random but fixed set of exploratory parameters.
-
-- Collect Data: The agent plays for a few steps with its consistent, noisy policy.
-
-- Learn: The agent performs a gradient update based on the collected data.
-
-- Repeat: The noise is reset, and the cycle begins again.
-
-This elegant mechanism allows the agent to learn how to explore. The underlying mean weights (μ) learn the core policy, while the noise parameters (σ) learn how much to deviate from that policy, and the periodic resetting of the noise vectors (ϵ) ensures that the exploration is always fresh and effective.
 
 ## RAINBOW: Combining Everything We've Learned
 
@@ -781,9 +940,6 @@ The success of RAINBOW also demonstrated the maturity of the DQN paradigm. It sh
 
 
 ## Other Advancements
-
-
-#### Beyond RAINBOW: The Continuing Evolution
 
 Even beyond RAINBOW, the field continues to evolve with improvements like:
 - **Implicit Quantile Networks (IQN)** for better distributional learning

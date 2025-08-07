@@ -17,8 +17,9 @@ from core.DQNBase import DQNBase
 def parse_args():
     parser = argparse.ArgumentParser(description="Train DQN-based RL agent on a single env for comparison.")
     parser.add_argument('--env', type=str, default="cartpole", help="Name of the environment to train on.")
-    parser.add_argument('--seed', type=int, default = 224)
-    parser.add_argument('--start-from', type=int, default = 1)
+    parser.add_argument('--seed', type=int, default = 224, help="Seed for reproducibility")
+    parser.add_argument('--start-from', type=int, default = 1, help="Specify the number of the agent to start from, to skip first N agents")
+    parser.add_argument('--timeout', type=float, default = 20, help="Maximum training time per agent, in minutes")
     args = parser.parse_args()
     return args
 
@@ -86,7 +87,7 @@ def main(args):
         pprint(f"[bold yellow] Using {agent.get_name()} Agent with the following config [/bold yellow]: \n {agent_config}")
 
         try:
-            agent.train(mean_rewards, std_rewards, max_steps=agent_config.max_steps, mean_n_episodes=mean_n)
+            agent.train(mean_rewards, std_rewards, max_steps=agent_config.max_steps, mean_n_episodes=mean_n, timeout=timeout)
         except KeyboardInterrupt:
             print("\nTraining interrupted by user (Ctrl+C).")
         finally:

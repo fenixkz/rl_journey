@@ -10,6 +10,7 @@ from collections import deque
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from core.DQNBase import DQNBase
 from core.configs import AgentConfig
+import time
 
 class AgentDQN(DQNBase):
     '''
@@ -89,7 +90,7 @@ class AgentDQN(DQNBase):
             # Target = reward + gamma * Q_target(s', argmax(Q_online(s'))) * (1 - done)
             # Multiply by (1 - done) so target is just 'r' if next_state is terminal
             td_target = rewards + self.gamma * target_q * (1 - dones)
-
+            
         # 6. Calculate TD-errors for updating priorities
         # TD-error measures how "surprising" or informative each experience is
         td_errors = torch.abs(actual_q_values - td_target)
@@ -113,7 +114,7 @@ class AgentDQN(DQNBase):
         # Increment step counter for beta annealing
         self.step_count += 1
 
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
+    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
         rewards_log = deque(maxlen=mean_n_episodes)
         
         obs, _ = self.env.reset(seed=self.seed)
@@ -123,6 +124,7 @@ class AgentDQN(DQNBase):
         
         episode = 0
         learning_steps = 0
+        start_time = time.time()
 
         for global_step in pbar:
             action = self.choose_action(obs)
@@ -158,5 +160,9 @@ class AgentDQN(DQNBase):
             # Log out the metrics
             postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A", "eps": f"{self.epsilon:.3f}"}
             pbar.set_postfix(postfix)
-        
+
+            if timeout is not None and time.time() - start_time > timeout*60:
+                print("[bold red] Timeout has expired, finishing the training...") 
+                break
+            
         pbar.close()

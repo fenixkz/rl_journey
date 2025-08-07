@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from core.DQNBase import DQNBase
 from core.configs import AgentConfig
 from core.policies import NoisyFC, NoisyCNN, NoisyDuelingFC, NoisyDuelingCNN
+import time
 
 class AgentDQN(DQNBase):
     '''
@@ -23,7 +24,7 @@ class AgentDQN(DQNBase):
         agent_config.memory = "per"
         agent_config.dueling = True 
         agent_config.memory_size = max(100000, agent_config.memory_size)   # For PER we need a bigger buffer  
-
+        agent_config.noisy_net = True
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari)
 
@@ -67,9 +68,6 @@ class AgentDQN(DQNBase):
                                              agent_config.hidden_dim, self.noisy_std).to(self.device)
                 self.target_model = NoisyCNN(self.observation_space.shape, self.action_space.n, 
                                              agent_config.hidden_dim, self.noisy_std).to(self.device)
-        
-        # Put the target network in evaluation mode to disable noise
-        self.target_model.eval() 
         
         # Copy the initial weights
         self.hard_update_target_network()
@@ -118,6 +116,9 @@ class AgentDQN(DQNBase):
         
         # 4. Calculate target Q-values using Double DQN
         with torch.no_grad():
+            # Disable noise first
+            # self.online_model.eval()
+            # self.target_model.eval()
             # Use online network to select best actions
             next_actions = torch.argmax(self.online_model(next_states), dim=1)
             
@@ -127,7 +128,9 @@ class AgentDQN(DQNBase):
             # Compute n-step return targets
             gamma_n = self.gamma ** ns
             targets = rewards + gamma_n * next_q_values * (1 - dones)
-        
+            # Enable it back
+            # self.online_model.train()
+            # self.target_model.train()
         # 5. Calculate TD-errors for PER
         td_errors = torch.abs(q_values - targets)
         
@@ -154,7 +157,7 @@ class AgentDQN(DQNBase):
         
         return loss.item()
 
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
+    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
         rewards_log = deque(maxlen=mean_n_episodes)
         
         obs, _ = self.env.reset()
@@ -164,13 +167,17 @@ class AgentDQN(DQNBase):
         
         episode = 0
         learning_steps = 0
+        start_time = time.time()
 
         # Initial noise reset
         self.reset_noise()
 
         for global_step in pbar:
-            action = self.choose_action(obs)
-            # No epsilon decay needed for Noisy Networks
+            if global_step < self.learning_starts:
+                action = np.random.choice(self.action_space.n)
+            else:
+                action = self.choose_action(obs)
+            
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
@@ -219,5 +226,9 @@ class AgentDQN(DQNBase):
             # Log out the metrics (no epsilon for Noisy Networks)
             postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A"}
             pbar.set_postfix(postfix)
-        
+
+            if timeout is not None and time.time() - start_time > timeout*60:
+                print("[bold red] Timeout has expired, finishing the training...") 
+                break
+            
         pbar.close()

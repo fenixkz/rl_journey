@@ -211,5 +211,5 @@ class DQNBase(ABC):
         pass
 
     @abstractmethod
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
+    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
         pass

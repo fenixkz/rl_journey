@@ -65,7 +65,7 @@ DEFAULT_CLASSIC_PARAMS = {
     "v_max": 10,   # Maximum value of support
     # ---------- NOISY NET PARAMS -----
     "noisy_net": False, # In Box2D envs epsilon-greedy performs better in my practice
-    "noise_std": 0.05, # Standard deviation for noise initialization
+    "noise_std": 0.2, # Standard deviation for noise initialization
 }
 
 

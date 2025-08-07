@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from core.DQNBase import DQNBase
 from core.configs import AgentConfig
 from core.policies import NoisyDistributionalDuelingFC, NoisyDistributionalDuelingCNN, DistributionalDuelingCNN, DistributionalDuelingFC
+import time
 
 class AgentDQN(DQNBase):
     '''
@@ -108,9 +109,6 @@ class AgentDQN(DQNBase):
                 self.observation_space.shape, self.action_space.n, 
                 agent_config.hidden_dim, self.n_atoms, self.noisy_std
             ).to(self.device)
-        
-        # Put the target network in evaluation mode to disable noise
-        self.target_model.eval() 
 
         # Copy the initial weights
         self.hard_update_target_network()
@@ -231,6 +229,9 @@ class AgentDQN(DQNBase):
         
         # 4. Calculate target distribution using Double DQN
         with torch.no_grad():
+            # Disable noise first
+            self.online_model.eval()
+            self.target_model.eval()
             # Use online network to select best actions
             online_next_log_probs = self.online_model(next_states)
             online_next_probs = online_next_log_probs.exp()
@@ -246,7 +247,10 @@ class AgentDQN(DQNBase):
             
             # Add small epsilon to avoid log(0) in the loss calculation
             projected_dist = projected_dist.clamp(min=1e-8)
-        
+            # Enable it back
+            self.online_model.train()
+            self.target_model.train()
+            
         # 5. Calculate cross-entropy loss
         loss = -(projected_dist * current_dist_log).sum(dim=-1)
         
@@ -283,7 +287,7 @@ class AgentDQN(DQNBase):
         
         return loss.item()
 
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50):
+    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
         rewards_log = deque(maxlen=mean_n_episodes)
         
         obs, _ = self.env.reset()
@@ -293,12 +297,16 @@ class AgentDQN(DQNBase):
         
         episode = 0
         learning_steps = 0
+        start_time = time.time()
 
         # Initial noise reset
         if self.use_noisy_net: self.reset_noise()
 
         for global_step in pbar:
-            action = self.choose_action(obs)
+            if global_step < self.learning_starts:
+                action = np.random.choice(self.action_space.n)
+            else:
+                action = self.choose_action(obs)
             if not self.use_noisy_net: self.decay_epsilon()
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
@@ -349,5 +357,9 @@ class AgentDQN(DQNBase):
             postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A"}
             if not self.use_noisy_net: postfix['epsilon'] = f"{self.epsilon:.3f}"
             pbar.set_postfix(postfix)
-        
+
+            if timeout is not None and time.time() - start_time > timeout*60:
+                print("[bold red] Timeout has expired, finishing the training...") 
+                break
+
         pbar.close()
