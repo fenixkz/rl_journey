@@ -53,7 +53,7 @@ DEFAULT_CLASSIC_PARAMS = {
     "max_epsilon": 1, 
     "min_epsilon": 0.02, # To be more greedy 
     # ----- PRIORITIZED EXPERIENCE REPLAY PARAMS ----
-    "alpha": 0.6,      # Alpha of PER
+    "alpha": 0.5,      # Alpha of PER
     "beta_start": 0.4, # Starting Beta of PER
     "beta_final": 1,   # Final Beta of PER
     "beta_increase_steps": int(4e4), # Total number of steps to increase beta from start to end
