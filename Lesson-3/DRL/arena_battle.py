@@ -87,7 +87,7 @@ def main(args):
         pprint(f"[bold yellow] Using {agent.get_name()} Agent with the following config [/bold yellow]: \n {agent_config}")
 
         try:
-            agent.train(mean_rewards, std_rewards, max_steps=agent_config.max_steps, mean_n_episodes=mean_n, timeout=timeout)
+            agent.train(mean_rewards, std_rewards, max_steps=agent_config.max_steps, mean_n_episodes=mean_n, timeout=args.timeout)
         except KeyboardInterrupt:
             print("\nTraining interrupted by user (Ctrl+C).")
         finally:
