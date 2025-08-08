@@ -64,7 +64,7 @@ def main(args):
     training_epochs = config.get("training_epochs", 100) # Total number of learning steps
     num_episodes = config.get("num_episodes", 50) # Number of episodes to play to apply CEM filtering
     percentile = config.get("percentile", 60) # Percentile of elite samples to filter
-    
+    learning_rate = config.get("lr", 1e-3) # Learning rate
     # Create the gym env
     env = gym.make(env_id) if not is_atari else get_atari_env(env_id)
     
@@ -73,7 +73,7 @@ def main(args):
                      solved_threshold=env_config['solved_reward'],
                      is_atari=is_atari,
                      hidden_dim=env_config.get('hidden_dim', 512),
-                     lr = env_config['lr'],
+                     lr = learning_rate,
                      seed = seed
                      )
 
