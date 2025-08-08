@@ -11,6 +11,7 @@ from typing import List
 import multiprocessing as mp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 from utils.prepare_atari_env import get_atari_env
+from collections import deque
 
 def set_seed(seed):
     """Set random seeds for reproducibility"""
@@ -153,7 +154,8 @@ class ESAgent(nn.Module):
         self.use_mp = is_atari # Overhead from creating agent and new env for simple Box2D envs is too much, easier to be sequential. But for Atari the opposite
         self.lr = learning_rate
         self.cpu_usage = cpu_usage
-
+        # Add a deque to track recent performance for adaptive noise
+        self.performance_history = deque(maxlen=10) # Track last 10 generations
         if not is_atari:
             # print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
             self.policy = FCNetwork(self.observation_space.shape[0], self.action_space.n, hidden_dim).to(self.device)
@@ -225,15 +227,17 @@ class ESAgent(nn.Module):
         Evolution Strategies training loop.
         """
         num_weights = self.get_weights().numel()
-
+        # Set the current noise scale
+        current_noise_std = noise_std
+        # Get total number of parameters
+        num_weights = central_weights.numel()
         pbar = tqdm(range(num_epochs), desc="Evolving", postfix={"mean_reward": 0})
 
         for generation in pbar:
             # Step 1. Get DNA of the parent
             # DNA means the weights of the central agent
             central_weights = self.get_weights()
-            # Get total number of parameters
-            num_weights = central_weights.numel()
+            
 
             # Step 2: Create a Population of "Mutants"
             # 1. Generate HALF the number of noise vectors in both directions +ε and -ε
@@ -250,7 +254,7 @@ class ESAgent(nn.Module):
                     task_args = (
                         central_weights.cpu(), 
                         noise.cpu(),  # <-- Use the positive noise
-                        noise_std, 
+                        current_noise_std, 
                         self.env.spec.id, 
                         base_seed, 
                         self.hidden_dim, 
@@ -263,7 +267,7 @@ class ESAgent(nn.Module):
                     task_args_minus = (
                         central_weights.cpu(), 
                         -noise.cpu(),        # <-- Use the negative noise
-                        noise_std, 
+                        current_noise_std, 
                         self.env.spec.id, 
                         base_seed + num_pairs, # Use a different seed
                         self.hidden_dim, 
@@ -289,12 +293,12 @@ class ESAgent(nn.Module):
                 # Evaluate the Population's "Fitness" using antithetic pairs
                 for noise in noise_vectors:
                     # Evaluate the +ε version
-                    self.set_weights(central_weights + noise_std * noise)
+                    self.set_weights(central_weights + current_noise_std * noise)
                     reward_plus = self.play_one_episode()
                     sequential_rewards.append(reward_plus)
 
                     # Evaluate the -ε version
-                    self.set_weights(central_weights - noise_std * noise)
+                    self.set_weights(central_weights - current_noise_std * noise)
                     reward_minus = self.play_one_episode()
                     sequential_rewards.append(reward_minus)
                 # Populate the external list for plotting purposes
@@ -305,6 +309,30 @@ class ESAgent(nn.Module):
             # Track performance
             mean_reward = np.mean(rewards)
             pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f}")
+            
+            # 1. Update performance history
+            self.performance_history.append(mean_reward)
+
+            # 2. Check for stagnation
+            is_stuck = False
+            if len(self.performance_history) == self.performance_history.maxlen:
+                # Check if improvement over the last 10 generations is minimal
+                improvement = max(self.performance_history) - min(self.performance_history)
+                if abs(improvement) < 0.5: # If score hasn't improved by at least 0.5
+                    is_stuck = True
+            
+            # 3. Adapt the noise standard deviation
+            if is_stuck:
+                # If stuck, increase noise to explore more widely
+                current_noise_std *= 1.1
+                pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Stuck! ↑ noise)")
+            else:
+                # If improving, decrease noise slightly for finer tuning
+                current_noise_std *= 0.99
+                pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Improving ↓ noise)")
+
+            # Add bounds to prevent noise from exploding or vanishing
+            current_noise_std = max(0.01, min(0.3, current_noise_std))
 
             # Step 4: Natural Selection and Generational Update
             # This is the core update rule: θ_new = θ_old + learning_rate * Σ(R_i * ε_i)
@@ -328,7 +356,7 @@ class ESAgent(nn.Module):
             # We want to MAXIMIZE reward, so we move along the gradient.
             # Adam MINIMIZES loss, so it moves in the NEGATIVE gradient direction.
             # Therefore, we set .grad to the NEGATIVE of our estimated gradient.
-            update_step = (1 / (population_size * noise_std)) * update_direction
+            update_step = (1 / (population_size * current_noise_std)) * update_direction
             # Manually assign the calculated gradients to the policy's parameters
             self.optimizer.zero_grad()
             offset = 0
