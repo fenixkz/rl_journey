@@ -229,8 +229,7 @@ class ESAgent(nn.Module):
         num_weights = self.get_weights().numel()
         # Set the current noise scale
         current_noise_std = noise_std
-        # Get total number of parameters
-        num_weights = central_weights.numel()
+
         pbar = tqdm(range(num_epochs), desc="Evolving", postfix={"mean_reward": 0})
 
         for generation in pbar:
