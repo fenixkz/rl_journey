@@ -21,6 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train a CEM agent.")
     parser.add_argument('--env', type=str, default="cartpole", help="Name of the environment to train on.")
     parser.add_argument('--seed', type=int, default = 224)
+    parser.add_argument('--cpu-usage', type=float, default = 0.5, help="Part of total CPU cores to use for training for multi-processing, 1 - all cores, 0.1 - 10 percent. Only used for Atari envs.")
     args = parser.parse_args()
     return args
 
@@ -52,6 +53,7 @@ def main(args):
     # Parse args
     env_name = args.env
     seed = args.seed
+    cpu_usage = max(args.cpu_usage, 0.1)
 
     # Get the config for that specific env 
     env_config = get_env_config(env_name=env_name)
@@ -74,16 +76,17 @@ def main(args):
                      is_atari=is_atari,
                      hidden_dim=env_config.get('hidden_dim', 512),
                      lr = learning_rate,
-                     seed = seed
+                     seed = seed,
+                     cpu_usage = cpu_usage,
                      )
 
-    # --- Visualization: Untrained Policy ---
+    # --- Visualization: Untrained Policy, only for non-ATARI ---
+    if not is_atari:
+        human_env = gym.make(env_id, render_mode="human") # Create a similar env, but that can visualize the environment using display
 
-    human_env = gym.make(env_id, render_mode="human") # Create a similar env, but that can visualize the environment using display
-
-    _, total_reward = agent.play_one_episode(human_env, agent, render=True)
-    pprint(f"Total reward achieved by untrained policy [bold red]: {total_reward}")
-    human_env.close()
+        _, total_reward = agent.play_one_episode(human_env, agent, render=True)
+        pprint(f"Total reward achieved by untrained policy [bold red]: {total_reward}")
+        human_env.close()
    
     # Initialize a list of all reward for plotting it later
     all_rewards = []
@@ -133,12 +136,12 @@ def main(args):
     print("\nEvaluating trained policy...")
     
     # --- Visualization: Trained Policy ---
+    if not is_atari:
+        human_env = gym.make(env_id, render_mode="human") # Create a similar env, but that can visualize the environment using display
 
-    human_env = gym.make(env_id, render_mode="human") # Create a similar env, but that can visualize the environment using display
-
-    _, total_reward = agent.play_one_episode(env=human_env, deterministic=True, render=True)
-    pprint(f"Total reward achieved by trained policy [bold green]: {total_reward}")
-    human_env.close()
+        _, total_reward = agent.play_one_episode(env=human_env, deterministic=True, render=True)
+        pprint(f"Total reward achieved by trained policy [bold green]: {total_reward}")
+        human_env.close()
     # --- End of visualization
 
     # --- Display the Plot (Only on Normal Completion) ---

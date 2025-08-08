@@ -138,7 +138,8 @@ class CEMAgent(nn.Module):
                  is_atari: bool = False,
                  hidden_dim: int = 64,
                  lr: float = 1e-3,
-                 seed: int = 224):
+                 seed: int = 224,
+                 cpu_usage: float = 0.5):
         assert(isinstance(env.action_space, gym.spaces.Discrete)), "Detected non-discrete action space, this class works only with discrete action space problems!"
         set_seed(seed)
         super(CEMAgent, self).__init__()
@@ -152,7 +153,9 @@ class CEMAgent(nn.Module):
         self.is_atari = is_atari
         self.hidden_dim = hidden_dim
         self.use_mp = is_atari  # Use multiprocessing for Atari environments only
-        
+        self.cpu_usage = cpu_usage
+
+
         if not is_atari:
             # print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
             self.policy = FCNetwork(self.observation_space.shape[0], self.action_space.n, hidden_dim).to(self.device)
@@ -287,8 +290,8 @@ class CEMAgent(nn.Module):
                     tasks.append(task_args)
                 
                 # Create a pool of workers and distribute the tasks
-                # This automatically uses half of all available CPU cores
-                with mp.Pool(processes=os.cpu_count() // 2) as pool:
+                # This automatically uses percentage of all available CPU cores
+                with mp.Pool(processes=int(os.cpu_count() * self.cpu_usage)) as pool:
                     # pool.map calls evaluate_episode for each item in 'tasks' and collects the results
                     episodes_data = pool.map(evaluate_episode, tasks)
                 

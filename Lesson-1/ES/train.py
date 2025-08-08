@@ -22,6 +22,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train an ES agent.")
     parser.add_argument('--env', type=str, default="cartpole", help="Name of the environment to train on.")
     parser.add_argument('--seed', type=int, default=224)
+    parser.add_argument('--cpu-usage', type=float, default = 0.5, help="Part of total CPU cores to use for training for multi-processing, 1 - all cores, 0.1 - 10 percent. Only used for Atari envs.")
+
     args = parser.parse_args()
     return args
 
@@ -53,6 +55,7 @@ def main(args):
     # Parse args
     env_name = args.env
     seed = args.seed
+    cpu_usage = max(args.cpu_usage, 0.1)
 
     # Get the config for that specific env 
     env_config = get_env_config(env_name=env_name)
@@ -76,7 +79,8 @@ def main(args):
                     is_atari=is_atari,
                     hidden_dim=env_config.get('hidden_dim', 512),
                     seed=seed,
-                    learning_rate=learning_rate
+                    learning_rate=learning_rate,
+                    cpu_usage=cpu_usage
                     )
    
     # Initialize a list of all reward for plotting it later

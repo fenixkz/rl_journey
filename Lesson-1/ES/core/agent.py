@@ -137,7 +137,8 @@ class ESAgent(nn.Module):
                  is_atari: bool = False,
                  hidden_dim: int = 64,
                  seed: int = 224, 
-                 learning_rate: float = 1e-3):
+                 learning_rate: float = 1e-3,
+                 cpu_usage: float = 0.5):
         assert(isinstance(env.action_space, gym.spaces.Discrete)), "Detected non-discrete action space, this class works only with discrete action space problems!"
         set_seed(seed)
         super(ESAgent, self).__init__()
@@ -151,6 +152,8 @@ class ESAgent(nn.Module):
         self.hidden_dim = hidden_dim
         self.use_mp = is_atari # Overhead from creating agent and new env for simple Box2D envs is too much, easier to be sequential. But for Atari the opposite
         self.lr = learning_rate
+        self.cpu_usage = cpu_usage
+
         if not is_atari:
             # print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
             self.policy = FCNetwork(self.observation_space.shape[0], self.action_space.n, hidden_dim).to(self.device)
@@ -271,8 +274,8 @@ class ESAgent(nn.Module):
 
                 # Step 3: Distribute offsprings
                 # Create a pool of workers and distribute the tasks
-                # This automatically uses half of all available CPU cores
-                with mp.Pool(processes=os.cpu_count() // 2) as pool:
+                # This automatically uses percentage of all available CPU cores
+                with mp.Pool(processes=int(os.cpu_count() * self.cpu_usage)) as pool:
                     # pool.map calls evaluate_mutant for each item in 'tasks' and collects the results
                     # map also returns a list of rewards
                     rewards = pool.map(evaluate_mutant, tasks)
