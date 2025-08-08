@@ -72,7 +72,7 @@ def main(args):
     agent = CEMAgent(env=env,
                      solved_threshold=env_config['solved_reward'],
                      is_atari=is_atari,
-                     hidden_dim=env_config['hidden_dim'],
+                     hidden_dim=env_config.get('hidden_dim', 512),
                      lr = env_config['lr'],
                      seed = seed
                      )
