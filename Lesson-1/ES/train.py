@@ -74,8 +74,9 @@ def main(args):
     agent = ESAgent(env=env,
                     solved_threshold=env_config['solved_reward'],
                     is_atari=is_atari,
-                    hidden_dim=env_config.get('hidden_dim', 256),
-                    seed=seed
+                    hidden_dim=env_config.get('hidden_dim', 512),
+                    seed=seed,
+                    learning_rate=learning_rate
                     )
    
     # Initialize a list of all reward for plotting it later
@@ -114,7 +115,6 @@ def main(args):
                 num_epochs=training_generations,
                 population_size=population_size,
                 noise_std=noise_std,
-                learning_rate=learning_rate
                 )
         training_completed_successfully = True
     except KeyboardInterrupt:

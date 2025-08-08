@@ -136,7 +136,8 @@ class ESAgent(nn.Module):
                  solved_threshold: float,
                  is_atari: bool = False,
                  hidden_dim: int = 64,
-                 seed: int = 224):
+                 seed: int = 224, 
+                 learning_rate: float = 1e-3):
         assert(isinstance(env.action_space, gym.spaces.Discrete)), "Detected non-discrete action space, this class works only with discrete action space problems!"
         set_seed(seed)
         super(ESAgent, self).__init__()
@@ -148,15 +149,20 @@ class ESAgent(nn.Module):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.is_atari = is_atari
         self.hidden_dim = hidden_dim
-        self.use_mp = is_atari
-
+        self.use_mp = is_atari # Overhead from creating agent and new env for simple Box2D envs is too much, easier to be sequential. But for Atari the opposite
+        self.lr = learning_rate
         if not is_atari:
             # print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
             self.policy = FCNetwork(self.observation_space.shape[0], self.action_space.n, hidden_dim).to(self.device)
         else:
             # print(f"Detected an Atari environment, observation space shape: {self.observation_space.shape}, using Convolutional Neural Network (CNN)")
             self.policy = CNNNetwork(self.observation_space.shape, self.action_space.n, hidden_dim).to(self.device)
-        
+        # Optimizer for smarter weight updates
+        self.optimizer = torch.optim.Adam(
+                                            self.policy.parameters(), 
+                                            lr=self.lr,
+                                            weight_decay=1e-4  # <-- Some regularization
+                                        )    
         # First reset for reproducing same results
         env.reset(seed=seed)
         env.action_space.seed(seed)
@@ -211,7 +217,7 @@ class ESAgent(nn.Module):
             total_reward += reward
         return total_reward
 
-    def train(self, all_rewards: List, num_epochs: int, population_size: int, noise_std: float, learning_rate: float):
+    def train(self, all_rewards: List, num_epochs: int, population_size: int, noise_std: float):
         """
         Evolution Strategies training loop.
         """
@@ -316,9 +322,21 @@ class ESAgent(nn.Module):
                 
             # Evolve the parent's DNA by taking a small step in the successful direction
             # The (population_size * noise_std) term is a standard part of the ES gradient estimator
-            update_step = (learning_rate / (population_size * noise_std)) * update_direction
-            new_weights = central_weights + update_step
-            self.set_weights(new_weights)
+            # We want to MAXIMIZE reward, so we move along the gradient.
+            # Adam MINIMIZES loss, so it moves in the NEGATIVE gradient direction.
+            # Therefore, we set .grad to the NEGATIVE of our estimated gradient.
+            update_step = (1 / (population_size * noise_std)) * update_direction
+            # Manually assign the calculated gradients to the policy's parameters
+            self.optimizer.zero_grad()
+            offset = 0
+            for param in self.policy.parameters():
+                num_elements = param.numel()
+                # Reshape the gradient segment and assign it
+                param.grad = -update_step[offset:offset + num_elements].reshape(param.shape).to(self.device)
+                offset += num_elements
+
+            # Tell Adam to perform its update step
+            self.optimizer.step()
 
             # Check for early termination
             if mean_reward > self.solved_threshold:

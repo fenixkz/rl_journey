@@ -1,7 +1,7 @@
 ES_CONFIG = {
     "training_generations": 500,
-    "population_size": 50,
-    "noise_std": 0.15,
+    "population_size": 100,
+    "noise_std": 0.05,
     "learning_rate": 0.01,
 }
 
