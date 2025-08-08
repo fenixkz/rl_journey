@@ -1,162 +1,161 @@
 import torch
+import multiprocessing as mp
 import gymnasium as gym
 import numpy as np
 import time
 import sys
-
-from agent import Agent
+import argparse
+from core.agent import CEMAgent
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
+from rich import print as pprint
+from config.CEM_CONFIG import CEM_CONFIG, CEM_ATARI_CONFIG
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from utils.plot_utils import get_figure
+from utils.classic_config import CLASSIC_ENV_CONFIG
+from utils.atari_config import ATARI_CONFIGS
+from utils.prepare_atari_env import get_atari_env
 
-# --- Environment Configurations ---
-ENV_CONFIGS = {
-    "CartPole-v1": {
-        "training_epochs": 100,
-        "num_episodes": 50, 
-        "threshold_reward": 400,
-    },
-    "LunarLander-v3": {
-        "training_epochs": 300,
-        "num_episodes": 50,
-        "threshold_reward": 200,
-    },
-}
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train a CEM agent.")
+    parser.add_argument('--env', type=str, default="cartpole", help="Name of the environment to train on.")
+    parser.add_argument('--seed', type=int, default = 224)
+    args = parser.parse_args()
+    return args
 
-def play_one_episode(env: gym.Env, agent: Agent, render: bool = False, deterministic: bool = False):
-    state, _ = env.reset()
-    history = []
-    done = False
-    total_reward = 0
-    while not done:
-        action = agent.choose_action(state=state, deterministic=deterministic)
-        next_state, reward, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
-        if render: env.render()
-        history.append((state, action))
-        state = next_state
-        total_reward += reward
-    return history, total_reward
-
-def select_elite_episodes(episodes_data, percentile):
+def get_env_config(env_name: str) -> dict:
     """
-    Select elite episodes based on total episode rewards.
-    episodes_data: list of (states, actions, total_reward) tuples
+    Retrieves the configuration for a given environment  name.
+    
+    Args:
+        env_name: The short name of the environment (e.g., "pong").
+        
+    Returns:
+        A dictionary containing the environment's configuration.
+        
+    Raises:
+        ValueError: If the short name is not found in the configs.
     """
-    # Sort episodes by total reward
-    episodes_data.sort(key=lambda x: x[2], reverse=True)
+    if env_name.lower() in ATARI_CONFIGS:
+        return ATARI_CONFIGS[env_name.lower()]
     
-    # Calculate how many episodes to keep
-    n_elite = int(len(episodes_data) * (100 - percentile) / 100)
-    n_elite = max(1, n_elite)  # Keep at least 1 episode
+    if env_name.lower() in CLASSIC_ENV_CONFIG:
+        return CLASSIC_ENV_CONFIG[env_name.lower()]
     
-    # Get elite episodes
-    elite_episodes = episodes_data[:n_elite]
-    
-    # Extract all states and actions from elite episodes
-    elite_states = []
-    elite_actions = []
-    
-    for states, actions, _ in elite_episodes:
-        elite_states.extend(states)
-        elite_actions.extend(actions)
-    
-    return np.array(elite_states), np.array(elite_actions)
+    raise ValueError(f"Unknown environment: '{env_name}'. "
+                    f"Available environments: {list(ATARI_CONFIGS.keys()) + list(CLASSIC_ENV_CONFIG.keys())}")
 
-if __name__ == "__main__":
-    # --- Configuration ---
-    env_id = "LunarLander-v3" # "CartPole-v1" "LunarLander-v3" 
+def main(args):
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # --- Parse args and parameters, create env and agent ---
+    # Parse args
+    env_name = args.env
+    seed = args.seed
 
-    env = gym.make(env_id)
-    obs_dim = env.observation_space.shape[0]
-    act_dim = env.action_space.n
+    # Get the config for that specific env 
+    env_config = get_env_config(env_name=env_name)
+    env_id = env_config['env_id']
+    # Is it ATARI env or not
+    is_atari = 'ALE/' in env_id
 
-    agent = Agent(obs_dim, act_dim, device).to(device)
+    # Some hyperparameters
+    config = CEM_ATARI_CONFIG if is_atari else CEM_CONFIG
+    training_epochs = config.get("training_epochs", 100) # Total number of learning steps
+    num_episodes = config.get("num_episodes", 50) # Number of episodes to play to apply CEM filtering
+    percentile = config.get("percentile", 60) # Percentile of elite samples to filter
+    
+    # Create the gym env
+    env = gym.make(env_id) if not is_atari else get_atari_env(env_id)
+    
+    # Create the agent
+    agent = CEMAgent(env=env,
+                     solved_threshold=env_config['solved_reward'],
+                     is_atari=is_atari,
+                     hidden_dim=env_config['hidden_dim'],
+                     lr = env_config['lr'],
+                     seed = seed
+                     )
 
     # --- Visualization: Untrained Policy ---
 
     human_env = gym.make(env_id, render_mode="human") # Create a similar env, but that can visualize the environment using display
 
-    _, total_reward = play_one_episode(human_env, agent, render=True)
-    print(f"Total reward achieved by untrained policy: {total_reward}")
+    _, total_reward = agent.play_one_episode(human_env, agent, render=True)
+    pprint(f"Total reward achieved by untrained policy [bold red]: {total_reward}")
     human_env.close()
-    # --- End of visualization
+   
+    # Initialize a list of all reward for plotting it later
+    all_rewards = []
 
+    # Path where to save the progress
+    save_path = f"results/{env_id}"
+    os.makedirs(save_path, exist_ok=True)
+    
+    # Function to save the progress
+    def save_progress():
+        """A non-interactive function to save model and plot to file."""
+        pprint("\nSaving model and plotting results to file...")
+        agent.save_policy(save_path)
+        if all_rewards:
+            fig = get_figure(all_rewards=all_rewards, 
+                     solved_threshold=env_config['solved_reward'],
+                     window_size=num_episodes)
+            pprint("Generated the figure")
+            save_file_path = os.path.join(save_path, "rewards.jpg")
+            try:
+                fig.savefig(save_file_path)
+                pprint(f"Plot saved to {save_file_path}")
+            except Exception as e:
+                pprint(f"Could not save plot: {e}")
+            finally:
+                plt.close(fig)
 
-    # Use config for the selected environment
-    env_config = ENV_CONFIGS.get(env_id, {})
-    training_epochs = env_config.get("training_epochs", 100) # Total number of learning steps
-    num_episodes = env_config.get("num_episodes", 50) # Number of episodes to play to apply CEM filtering
-    threshold_reward = env_config.get("threshold_reward", 200) # A reward after which we consider the env solved
+    
+    pprint(f"----------------------------------- :rocket: :rocket: :rocket: [bold red] Training {env_id} [/bold red] :rocket: :rocket: :rocket: --------------------------------")
+    
+    training_completed_successfully = False
+    try:
+        agent.train(all_rewards=all_rewards,
+                num_epochs=training_epochs,
+                num_episodes=num_episodes,
+                percentile=percentile
+                )
+        training_completed_successfully = True
+    except KeyboardInterrupt:
+        print("\nTraining interrupted by user (Ctrl+C).")
+    finally:
+        # This block will execute on normal completion, Ctrl+C, or a different error.
+        save_progress()
 
-    mean_rewards = [] # To track the evolution of total rewards
-    std_rewards = [] # To track the evolution of total rewards
-    episodes_in_a_row = 0 # Counter for consecutive good episodes
-    terminate_after = 2 # Stop training after this many consecutive good episodes
-
-    pbar = tqdm(range(training_epochs), desc="Training", postfix={"mean_reward": 0})
-
-    for e in pbar:
-        # Collect data from multiple episodes
-        episodes_data = []
-        
-        # Play N episodes and gather data
-        for episode in range(num_episodes):
-            history, total_reward = play_one_episode(env, agent)
-            
-            # Extract states and actions from history
-            episode_states = [step[0] for step in history]
-            episode_actions = [step[1] for step in history]
-            
-            # Store episode data: (states, actions, total_reward)
-            episodes_data.append((episode_states, episode_actions, total_reward))
-        
-        # Calculate mean reward for this training step
-        all_rewards = [episode[2] for episode in episodes_data]
-        mean_reward = np.mean(all_rewards)
-        std_reward = np.std(all_rewards)
-        mean_rewards.append(mean_reward)
-        std_rewards.append(std_reward)
-        pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f}")
-        
-        # Select elite episodes based on total episode rewards (top 30%)
-        elite_states, elite_actions = select_elite_episodes(episodes_data, percentile=70)
-        
-        if len(elite_states) > 0:  # Only train if we have elite data
-            agent.learn(elite_states, elite_actions)
-        
-        # Check for early termination
-        if mean_reward > threshold_reward:
-            episodes_in_a_row += 1
-        else:
-            episodes_in_a_row = 0
-            
-        if episodes_in_a_row >= terminate_after:
-            pbar.close()
-            print(f"Terminated after {e+1} steps with mean reward {mean_reward:.2f}")
-            break
-        
-    # Evaluate policy: use deterministic actions, play 10 episodes and compute average reward
+    
+    # Evaluate policy: use deterministic actions
     print("\nEvaluating trained policy...")
     
     # --- Visualization: Trained Policy ---
 
     human_env = gym.make(env_id, render_mode="human") # Create a similar env, but that can visualize the environment using display
 
-    _, total_reward = play_one_episode(human_env, agent, render=True)
-    print(f"Total reward achieved by trained policy: {total_reward}")
+    _, total_reward = agent.play_one_episode(env=human_env, deterministic=True, render=True)
+    pprint(f"Total reward achieved by trained policy [bold green]: {total_reward}")
     human_env.close()
     # --- End of visualization
 
-    save_path = f"results/{env_id}"
-    os.makedirs(save_path, exist_ok=True)
+    # --- Display the Plot (Only on Normal Completion) ---
+    if training_completed_successfully:
+        pprint("Training completed successfully. Displaying final plot.")
+        # Re-create the figure from the final data and show it.
+        fig = get_figure(all_rewards=all_rewards, 
+                     solved_threshold=env_config['solved_reward'],
+                     window_size=num_episodes)
+        plt.show()
 
-    fig = get_figure(mean_rewards, std_rewards, num_episodes=num_episodes)
-    fig.savefig(f"{save_path}/rewards.png")
-    plt.show()
-    agent.save_policy(env_id)
     env.close()
+
+if __name__=='__main__':
+    try:
+        mp.set_start_method('spawn')
+    except RuntimeError:
+        pass # The start method can only be set once.
+    args = parse_args()
+    main(args)

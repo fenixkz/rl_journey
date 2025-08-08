@@ -9,6 +9,8 @@ from tqdm import tqdm
 import random
 from typing import List
 import multiprocessing as mp
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
+from utils.prepare_atari_env import get_atari_env
 
 def set_seed(seed):
     """Set random seeds for reproducibility"""
@@ -104,7 +106,7 @@ def evaluate_mutant(args):
     central_weights_flat, noise_vector, noise_std, env_id, seed, hidden_dim, is_atari = args
     
     # Each process needs its own environment and agent instance
-    env = gym.make(env_id)
+    env = gym.make(env_id) if not is_atari else get_atari_env(env_id)
     # Use a different seed for each worker's env to ensure diverse episodes
     env.reset(seed=seed)
     env.action_space.seed(seed)
@@ -146,6 +148,7 @@ class ESAgent(nn.Module):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.is_atari = is_atari
         self.hidden_dim = hidden_dim
+        self.use_mp = is_atari
 
         if not is_atari:
             # print(f"Detected a classic (vector) environment, observation space shape: {self.observation_space.shape}, using Fully Connected (FC) Network")
@@ -229,49 +232,67 @@ class ESAgent(nn.Module):
             num_pairs = population_size // 2
             noise_vectors = [torch.randn(num_weights, device=self.device) for _ in range(num_pairs)]
 
-            # 2. Create tasks for BOTH the positive and negative perturbations, this is needed for multiprocessing
-            tasks = []
-            for i, noise in enumerate(noise_vectors):
-                base_seed = generation * population_size + i
+            if self.use_mp:
+                # 2. Create tasks for BOTH the positive and negative perturbations, this is needed for multiprocessing
+                tasks = []
+                for i, noise in enumerate(noise_vectors):
+                    base_seed = generation * population_size + i
 
-                task_args = (
-                    central_weights.cpu(), 
-                    noise.cpu(),  # <-- Use the positive noise
-                    noise_std, 
-                    self.env.spec.id, 
-                    base_seed, 
-                    self.hidden_dim, 
-                    self.is_atari
-                )
-                # Add the +ε task
-                tasks.append(task_args)
+                    task_args = (
+                        central_weights.cpu(), 
+                        noise.cpu(),  # <-- Use the positive noise
+                        noise_std, 
+                        self.env.spec.id, 
+                        base_seed, 
+                        self.hidden_dim, 
+                        self.is_atari
+                    )
+                    # Add the +ε task
+                    tasks.append(task_args)
+                    
+                    # Create the arguments for the -ε task
+                    task_args_minus = (
+                        central_weights.cpu(), 
+                        -noise.cpu(),        # <-- Use the negative noise
+                        noise_std, 
+                        self.env.spec.id, 
+                        base_seed + num_pairs, # Use a different seed
+                        self.hidden_dim, 
+                        self.is_atari
+                    )
+                    # Add the -ε task
+                    tasks.append(task_args_minus)
+
+                # Step 3: Distribute offsprings
+                # Create a pool of workers and distribute the tasks
+                # This automatically uses half of all available CPU cores
+                with mp.Pool(processes=os.cpu_count() // 2) as pool:
+                    # pool.map calls evaluate_mutant for each item in 'tasks' and collects the results
+                    # map also returns a list of rewards
+                    rewards = pool.map(evaluate_mutant, tasks)
                 
-                # Create the arguments for the -ε task
-                task_args_minus = (
-                    central_weights.cpu(), 
-                    -noise.cpu(),        # <-- Use the negative noise
-                    noise_std, 
-                    self.env.spec.id, 
-                    base_seed + num_pairs, # Use a different seed
-                    self.hidden_dim, 
-                    self.is_atari
-                )
-                # Add the -ε task
-                tasks.append(task_args_minus)
+                # Populate the external list for plotting purposes
+                all_rewards.extend(rewards)
+                # Cast to np.array for better calculations
+                rewards = np.array(rewards)
+            else:
+                sequential_rewards = []
+                # Evaluate the Population's "Fitness" using antithetic pairs
+                for noise in noise_vectors:
+                    # Evaluate the +ε version
+                    self.set_weights(central_weights + noise_std * noise)
+                    reward_plus = self.play_one_episode()
+                    sequential_rewards.append(reward_plus)
 
-
-            # Step 3: Distribute offsprings
-            # Create a pool of workers and distribute the tasks
-            # This automatically uses half of all available CPU cores
-            with mp.Pool(processes=os.cpu_count() // 2) as pool:
-                # pool.map calls evaluate_mutant for each item in 'tasks' and collects the results
-                # map also returns a list of rewards
-                rewards = pool.map(evaluate_mutant, tasks)
-            # Populate the external list for plotting purposes
-            all_rewards.extend(rewards)
-            # Cast to np.array for better calculations
-            rewards = np.array(rewards)
-
+                    # Evaluate the -ε version
+                    self.set_weights(central_weights - noise_std * noise)
+                    reward_minus = self.play_one_episode()
+                    sequential_rewards.append(reward_minus)
+                # Populate the external list for plotting purposes
+                all_rewards.extend(sequential_rewards)
+                # Cast to np.array for better calculations
+                rewards = np.array(sequential_rewards)
+            
             # Track performance
             mean_reward = np.mean(rewards)
             pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f}")
