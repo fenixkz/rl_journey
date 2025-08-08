@@ -331,7 +331,7 @@ class ESAgent(nn.Module):
                 pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Improving ↓ noise)")
 
             # Add bounds to prevent noise from exploding or vanishing
-            current_noise_std = max(0.01, min(0.3, current_noise_std))
+            current_noise_std = max(noise_std, min(0.3, current_noise_std))
 
             # Step 4: Natural Selection and Generational Update
             # This is the core update rule: θ_new = θ_old + learning_rate * Σ(R_i * ε_i)

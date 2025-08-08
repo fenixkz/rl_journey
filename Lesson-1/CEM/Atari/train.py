@@ -10,6 +10,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
 from rich import print as pprint
+from rich.console import Console
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 from config.CEM_CONFIG import CEM_CONFIG, CEM_ATARI_CONFIG
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
@@ -127,7 +128,9 @@ def main(args):
                 plt.close(fig)
 
     
-    pprint(f"----------------------------------- :rocket: :rocket: :rocket: [bold red] Training {env_id} [/bold red] :rocket: :rocket: :rocket: --------------------------------")
+    console = Console()
+    title = f":rocket: :rocket: :rocket: [bold red] Training {env_id} with CEM [/bold red] :rocket: :rocket: :rocket:"
+    console.print(title, justify="center")
     
     training_completed_successfully = False
     try:
