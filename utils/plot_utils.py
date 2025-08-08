@@ -2,26 +2,29 @@ import matplotlib.pyplot as plt
 from typing import Iterable
 import numpy as np
 
-def get_figure(mean_rewards: Iterable, std_rewards: Iterable, num_episodes: int):
-    mean_rewards = np.array(mean_rewards)
-    std_rewards = np.array(std_rewards)
-    n_episodes = len(mean_rewards)
+def get_figure(all_rewards: Iterable, solved_threshold: float, window_size: int = 50):
+
+    if len(all_rewards) >= window_size:
+        moving_avg = np.convolve(all_rewards, np.ones(window_size)/window_size, mode='valid')
+        moving_avg_x = np.arange(window_size-1, len(all_rewards))
+    else:
+        moving_avg = all_rewards
+        moving_avg_x = np.arange(len(all_rewards))
+
+
     fig, ax = plt.subplots(figsize=(12, 6)) # Create a figure and axes
 
     # Plot the mean reward line
-    ax.plot(range(n_episodes), mean_rewards, color='green', label='Mean Training Episodic Reward')
-
-    # Plot the standard deviation area
-    # y1 is the lower bound, y2 is the upper bound
-    ax.fill_between(range(n_episodes), 
-                    mean_rewards - std_rewards, 
-                    mean_rewards + std_rewards, 
-                    color='green', 
-                    alpha=0.2,  # Use alpha for transparency
-                    label='Standard Deviation')
+    ax.plot(moving_avg_x, moving_avg, color='darkblue', linewidth=2, 
+             label=f'Moving Average (window={window_size})')
+    # Plot transparent all real rewards
+    ax.plot(all_rewards, alpha=0.3, color='lightblue', label='Episode Rewards')
+    
+    ax.axhline(y=solved_threshold, color='red', linestyle='--', 
+                label=f'Solved Threshold ({solved_threshold})')
     ax.set_xlabel('Episode')
-    ax.set_ylabel('Mean Rewards')
-    ax.set_title(f"Mean of rewards of {num_episodes} over total number of training episodes")
-    ax.grid(True)
+    ax.set_ylabel('Total Episodic Rewards')
+    ax.set_title(f"All rewards with mean line of {window_size} episodes")
+    ax.grid(True, alpha=0.3)
     return fig
     
