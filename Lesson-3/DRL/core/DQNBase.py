@@ -170,15 +170,6 @@ class DQNBase(ABC):
 
     def get_name(self):
         return self.name
-
-    def auto_fire(self):
-        '''
-        Auto-fire button pressing at the start for ATARI envs
-        '''
-        action_descr = self.env.unwrapped.get_action_meanings()
-        fire_action = action_descr.index("FIRE")
-        obs, _, _, _, _ = self.env.step(fire_action)
-        return obs
     
     def _get_n_step_info(self):
         """Calculates the n-step return for the oldest transition in the buffer. Used for N-step-return"""

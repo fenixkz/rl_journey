@@ -2,7 +2,7 @@
 
 # Introduction to Reinforcement Learning 
 
-All right, welcome to my repo! In this repo I try to explain Reinforcement Learning to people who are interested in this field, but get scared by the massive amount of equations. I try to make the learning as intuitive as possible to create a deeper understanding of the topic. I hope that by the end of all lessons, you will understand what RL is, more importantly how it works, and how it can be applied. Okay, shall we start?
+All right, welcome to my repository! In this repo I try to explain Reinforcement Learning to people who are interested in this field, but get scared by the massive amount of equations. I try to make the learning as intuitive as possible to create a deeper understanding of the topic. I hope that by the end of all lessons, you will understand what RL is, more importantly how it works, and how it can be applied. Okay, shall we start?
 
 # Table of Contents
 
@@ -26,11 +26,15 @@ All right, welcome to my repo! In this repo I try to explain Reinforcement Learn
 
 # Reinforcement Learning (RL)
 
-Reinforcement learning is formally a sub-field of Machine Learning (ML). For those who aren't familiar with ML, here's a helpful way to think about it. For long decades practioners used a pre-defined sequence of logical checks to solve problems. For example, a robot on an assembly line is programmed with a precise sequence of movements: pick up part A, rotate 90 degrees, place it on part B. If a part is misaligned, the robot cannot adapt. To improve it people started developing algorithms that would allow machines to change their behavior or in other words to learn. But the learning does not happen magically; this process requires some data. This data is used by algorithms to develop some rule or some skill that would allow them to work on data that it did not see during training. A classic example is image classification, based on thousands of images containing either a cat or a dog, the algorithm learns the skill of classifying an image as containing either a cat or a dog. It learns this skill very well, because it works even on images that were not given to it during training! 
+Reinforcement learning is formally a sub-field of Machine Learning (ML). For those who aren't familiar with ML, here's a helpful way to think about it. For long decades practioners used a pre-defined sequence of logical checks to solve problems. For example, a robot on an assembly line is programmed with a precise sequence of movements: pick up part A, rotate 90 degrees, place it on part B. If a part is misaligned, the robot cannot adapt. To improve it people started developing algorithms that would allow machines to change their behavior or in other words to *learn*. 
 
-Like other machine learning methods, Reinforcement Learning also uses data to learn a skill. However, what differentiates RL from other ML fields is how this data is collected. For example, in the example we discussed above, the data is gathered by people who manually assign labels to images. In RL, people are not involved in the data collection process. Instead, RL mimics animal learning - learning by trial and error. To better understand how it is achieved, we need to define the essential components of any RL algorithm.
+Learning does not happen magically; this process requires some data. This data is used by algorithms to develop some rule or some skill that would allow them to work on data that it did not see during training. A classic example is image classification, based on thousands of images containing either a cat or a dog, the algorithm learns the skill of classifying an image as containing either a cat or a dog. It learns this skill very well, because it works even on images that were not given to it during training! 
 
-There are two essential components of RL: agent and environment. The agent can be anything that can take a variety of actions and the environment is a system that the agent interacts with. The intuitive example is a video game: in this scenario you are the agent and the game is the environment, you take some actions and the game reacts to them. But how can we understand whether we are doing well or poorly in the game? The game usually provides us some feedback mechanism, i.e. a score. We see that some of our actions achieve a high score, while others result in a low one. So, our intuitive learning is to reinforce actions that result in a high score and avoid those that result in a low score. That is the same mechanism of learning in RL. In Reinforcement Learning, this feedback — whether a high score or a low one — is formally known as a reward.
+Like other machine learning methods, Reinforcement Learning also uses data to learn a skill. However, what differentiates RL from other ML fields is how this data is collected. For example, in the example we discussed above, the data is gathered by people who manually assign labels to images. Alternatively, in RL people are not involved in the data collection process. Reinforcement learning mimics animal learning - learning by trial and error. To better understand how it is achieved, we need to define the essential components of any RL algorithm.
+
+## Essential components
+
+There are two essential components of RL: agent and environment. The agent can be anything that can take a variety of actions and the environment is a system that the agent interacts with. The intuitive example is a video game: in this scenario you are the agent and the game is the environment, you take some actions and the game reacts to them. But how can we understand whether we are doing well or poorly in the game? The game usually provides us some feedback mechanism, i.e. a score. We see that some of our actions achieve a high score, while others result in a low one. So, our intuitive learning is to reinforce actions that result in a high score and avoid those that result in a low score. That is the same mechanism of learning in RL. In Reinforcement Learning, this feedback - whether a high score or a low one - is formally known as a reward.
 
 So, an agent performs an action. This action leads to changes in the environment, and in return, the environment provides a reward. Let's review another essential component of RL: **state** or **observation**. Consider this: in a game, how do you actually choose which action to take? In other words what makes us press *Fire* button instead of *Move Left* button? You know that if you have an enemy in front of you, you would press *Fire* button to kill it, or if there is a wall then you would press *Move Left* to pass it. This means we have some understanding of what is currently happening in the game. This understanding comes from the display where the game is shown. This display is the observation or the state in the game. The agent (you, in this example) does not randomly choose actions. Instead, it observes the current state of the environment to decide whether it should *Jump* or *Fire* or *Run* or *Roll*. So, the environment has to give the agent not only a reward but also a representation of the system's current state.
 
@@ -113,7 +117,7 @@ The agent's goal is to learn how to navigate from a starting position to the goa
    **Note for Future Problems:** Sometimes, we use a small negative reward for standard moves (e.g., $r = -0.01$). This encourages the agent to find the goal as efficiently as possible, because it loses a tiny amount for every step it "wastes."
 
 4. **Policy ($\pi$)**  
-   The policy is the core of the agent; it's the strategy the agent uses to select an action based on its current state. Its goal is to find the optimal policy—the one that leads to the maximum possible total reward.
+   The policy is the core of the agent; it's the strategy the agent uses to select an action based on its current state. Its goal is to find the optimal policy - the one that leads to the maximum possible total reward.
 
    - **Function:** A policy is a function that maps states to actions, $\pi(s) \rightarrow a$.
    - **Simple Representation:** For a simple grid, the policy can be a basic lookup table. A Python dictionary is a perfect real-world example of this. We can store the best action to take for each state.
@@ -146,7 +150,7 @@ The collected sequence of data in the form $`<s_t, a_t, r_{t+1}, s_{t+1}, \text{
 <(2,0), 2, 0, (2,1), False> --> 
 <(2,1), 2, 0, (2,2), False> --> 
 <(2,2), 0, 0, (3,2), False> --> 
-<(3,2), 2, 0, (3,3), True>
+<(3,2), 2, 1, (3,3), True>
 ```
 
 So, the total return over this trajectory is (assuming $\gamma$ is 0.9)
@@ -157,7 +161,7 @@ $$
 
 # Cross Entropy Method (CEM)
 
-Now that we understand the core components of a Reinforcement Learning problem, how do we actually teach our agent's "brain" — its policy — to get better?
+Now that we understand the core components of a Reinforcement Learning problem, how do we actually teach our agent's "brain" - its policy - to get better?
 
 There are many advanced algorithms, but we can start with one of the simplest yet surprisingly powerful methods: the **Cross-Entropy Method (CEM)**. It's particularly good for beginners because it's easy to understand and implement.
 
@@ -194,7 +198,7 @@ We let our current policy network play many full episodes. Let's say we have it 
 
 ### Step 2: Evaluation and Elite Selection (Find the best games)
 
-Next, we calculate the total return for each of the 100 episodes. We then sort the episodes by their total returns and select the "elite" ones. For example, we might decide to keep only the top 10% — the 10 best episodes that got the highest scores.
+Next, we calculate the total return for each of the 100 episodes. We then sort the episodes by their total returns and select the "elite" ones. For example, we might decide to keep only the top 10% - the 10 best episodes that got the highest scores.
 
 ### Step 3: Training (Learn from the best games)
 
@@ -212,11 +216,24 @@ Mathematically, this is done by minimizing the **Cross-Entropy Loss**. You don't
 
 ### Step 4: Repeat
 
-After training, our policy network is now slightly better — its weights have been updated in the right direction.
+After training, our policy network is now slightly better - its weights have been updated in the right direction.
 We then repeat the entire process: we use this new, improved policy to generate another 100 episodes, pick the top 10, and retrain on those. 
 
-Of course these episodes are going to be even better, and so by iteratively applying this algorithm we are going to improve our policy
-until it converges to the policy that results in the maximum achievable accumulated reward.
+Given that our policy hopefully improved in the last step, these episodes should be even better. So, by doing that many times we are moving towards a policy that can achieve the highest return. 
+
+A crucial difference between reinforcement learning and standard supervised learning (like a cat-dog classifier) is the nature of the training data.
+
+In supervised learning, you have a static dataset. Someone has already collected and labeled thousands of images, and this dataset doesn't change. The network's goal is to learn the true, fixed distribution of this data.
+
+In RL, we don't have this luxury. Our dataset is dynamic because the agent generates its own data by interacting with the environment. The quality of the data depends directly on the skill of the current policy. This leads to a critical question for algorithms like CEM: should we keep re-using elite samples from previous, less-skilled versions of our policy?
+
+This is the core of the on-policy vs. off-policy trade-off.
+
+- The Case for Re-using Old Data (Off-Policy): From one point of view, more data is better. Re-using past experiences increases sample efficiency - why throw away good data? It also adds diversity to our training batches, which can stabilize learning and prevent the agent from overfitting to its most recent (and possibly flawed) behavior.
+
+- The Case Against Re-using Old Data (On-Policy): On the other hand, the current policy has already learned from that old data; it's now smarter. Why would we want an improved agent to keep learning from actions taken by an older, less capable version of itself? This outdated data is no longer representative of the agent's current skill, and learning from it could slow down convergence or even teach the agent to repeat past mistakes.
+
+For the sake of stability we choose to discard the previously used data. This makes our algorithm less data efficient. Moreover it makes the learning much harder, because our data distribution is not static, it is constantly changing. 
 
 ---
 
@@ -226,8 +243,8 @@ Alternatively, you can find implementations of CEM at the sample level. This mea
 
 Both approaches are valid and have their pros and cons. Some key points to consider are:
 
-- Episode-level CEM takes longer, as collecting N episodes requires some time. The learning happens only after the collection is done, but it provides a more holistic view of the agent's performance.
-- Sample-level CEM is quicker, but much noisier. An action can receive a high reward but lead to a bad state. For example, imagine you enter a room with both a treasure and a lion. You get a high reward for getting the treasure, but the lion will eat you shortly after. Although your reward was high, the next state was terrible for you. CEM at the sample level won't care; it will only learn that this action was really good and should be reinforced. Episode-level CEM provides a smoother and more accurate representation of true rewards.
+- Episode-level CEM takes longer, as collecting N episodes requires some time. The learning happens only after the collection is done, but it provides a more holistic view of the agent's performance. In addition, you can speed up by using some multiprocessing libraries to run N episodes in parallel.
+- Sample-level CEM is quicker, but much noisier. An action can receive a high reward but lead to a bad state. For example, imagine you enter a room with both a treasure and a lion. You get a high reward for getting the treasure, but the lion will eat you shortly after. Although your reward was high, the next state was terrible for you. CEM at the sample level won't care; it will only learn that this action was really good and should be reinforced. Sample-level CEM provides a noisier and less accurate representation of true rewards.
 
 In practice, the choice between episode-level and sample-level CEM depends on the environment and the specific problem you are trying to solve. Episode-level CEM is generally more robust, especially in environments where actions can have long-term consequences that are not immediately reflected in the reward. Sample-level CEM can be useful for faster feedback or when actions are kinda independent (meaning that they do not really affect much future rewards), but you should be cautious of the increased noise and potential for misleading updates.
 
@@ -254,7 +271,7 @@ But do not worry, we will explore other - more mathematically proven - algorithm
 
 # A Different Approach: Evolution Strategies (ES)
 
-The Cross-Entropy Method (CEM) showed us a powerful way to improve our policy by learning from the "elite" episodes. But what if, instead of just copying the actions from our best runs, we could learn from the underlying traits that made those runs successful? What if I also told you that we can use a neural network as our agent and improve it without any backpropogation?
+The Cross-Entropy Method (CEM) showed us a powerful way to improve our policy by learning from the "elite" episodes. But what if, instead of just copying the actions from our best runs, we could learn from the underlying traits that made those runs successful? What if I also told you that we can use a neural network as our policy and improve it without any gradients and backpropogation?
 
 That’s where **Evolution Strategies (ES)** comes in - an algorithm inspired by how evolution works in nature. It’s a simple, intuitive approach that got a lot of attention after OpenAI [showed](https://openai.com/index/evolution-strategies/) how well it could scale.
 
@@ -286,7 +303,7 @@ $
 \theta_i = \theta + \epsilon_i
 $
 
-where $\epsilon_i$ is a small random noise vector—our "mutation."
+where $\epsilon_i$ is a small random noise vector - our "mutation."
 
 ### 3. Evaluate the Population's "Fitness"
 
@@ -312,9 +329,11 @@ By averaging over the whole population, the parent policy "evolves" by taking a 
 Now, we take our new, slightly evolved parent policy $\theta_{\text{new}}$ and repeat the whole process for many generations, gradually making it better and better.
 
 
+The pipeline is quite similar to Cross-Entropy Method we discussed above. Here we also play N episodes and observe the total returns. The difference is that we do not train our network on data from these episodes, we simply move weights of the policy towards the mutation achieved better results.
+
 ## Why is ES a Powerful Idea?
 
-- **Massive Parallelization:** This is the big advantage OpenAI pointed out. Each of the 100 "mutant" policies can be evaluated on a separate CPU core, totally independently. You don’t need to send complicated gradients back and forth—just the final fitness score. This lets ES scale to thousands of machines, making it super fast in terms of wall-clock time.
+- **Massive Parallelization:** This is the big advantage OpenAI pointed out. Each of the 100 "mutant" policies can be evaluated on a separate CPU core, totally independently. You don’t need to send complicated gradients back and forth - just the final fitness score. This lets ES scale to thousands of machines, making it super fast in terms of wall-clock time.
 - **Simplicity:** Like CEM, it’s a "black-box" method. It doesn’t need to know anything about the inner workings of the environment.
 - **Better Exploration:** The constant injection of noise into the policy parameters means the agent is always trying out new strategies.
 
@@ -342,7 +361,7 @@ ES isn’t a magic bullet and shares some of the same weaknesses as CEM:
 
 # Other Black-Box and Evolutionary Approaches
 
-CEM and ES both use a "black-box" approach: instead of calculating gradients, they just try out different sets of network weights and see what works best. These algorithms work out of the box, meaning that they can be easily adapted to many different problems without the need for complex math to calculate gradients or anything else. If this area interests you, here are a few other fascinating algorithms worth checking out.
+CEM and ES both use a "black-box" approach: instead of calculating some correlation between state, action and total possible return, they just try out different sets of network weights and see what works best. These algorithms work out of the box, meaning that they can be easily adapted to many different problems without the need for complex math to calculate gradients or anything else. If this area interests you, here are a few other fascinating algorithms worth checking out.
 
 ## Genetic Algorithms (GAs)
 

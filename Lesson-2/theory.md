@@ -35,7 +35,7 @@ Welcome to the second lesson! I hope you enjoyed the first lesson and had a chan
 
 # Markov Decision Process
 
-First, let's define the playground for many Reinforcement Learning algorithms. RL cannot solve just any problem — it’s designed for a specific set of problems. These problems share a key feature: they can be modeled as Markov Decision Processes (MDPs). The name comes from a crucial assumption they satisfy: the Markov Property.
+First, let's define the playground for many Reinforcement Learning algorithms. RL cannot solve just any problem - it’s designed for a specific set of problems. These problems share a key feature: they can be modeled as Markov Decision Processes (MDPs). The name comes from a crucial assumption they satisfy: the Markov Property.
 
 ## Markov Property
 
@@ -61,16 +61,16 @@ Therefore, if $s_t$ is all the information the environment needs to determine wh
 
 Think about it: how can you decide what is the best option when you don’t have all the facts? For example, you’re in the store looking at two yogurts and trying to decide which one to buy. Knowing only the brand names isn’t enough for you to make the best choice; you need all the information you can get: price, expiration date, calories, reviews, and so on.
 
----
-
 Let's look at two examples and try to understand whether they are Markovian or not.
+
+---
 
 ### Chess Game
 
 In chess, the current configuration of all pieces on the board serves as the state $s_t$. Knowing only this state is enough to determine all legal moves and the potential outcomes of those moves according to the rules. How the pieces arrived at their current positions (for example, why a piece was taken earlier) doesn’t change the rules or possibilities moving forward from the current board state. Given the state $s_t$, our policy $\pi_\theta$ can choose an action $a_t$, which then, according to the game rules (the transition dynamics), leads us to a new state $s_{t+1}$. Chess, under this definition, is essentially Markovian.
 
 
-### A self-driving car:
+### Self-driving car
 
 Now, let's consider a more realistic and complex example: a self-driving car.
 
@@ -88,8 +88,7 @@ No matter how many sensors we add, we can never fully observe the true state of 
 
 So, the formal definition of the Markov property, which is about the environment's dynamics, transforms into a practical requirement for us as designers: we must strive to create a state representation $s_t$ that is "Markov enough." Our goal is to feed our agent a state that is as rich as possible, capturing all the relevant information from the past so that it can make a well-informed, effective, and safe decision, even if the state isn't theoretically perfect.
 
-
-## Simple Environment Example & Policy Types
+---
 
 To build a deeper understanding, imagine a game with three states: $s_0, s_1, s_2$. 
 - You start in $s_0$, and from this state you have two actions: $a_0, a_1$. 
@@ -109,15 +108,15 @@ Policies in Standard MDPs are (typically) deterministic and Markovian: A standar
 
 **What the RL Algorithm Finds?**
 
-Given state $s_0$, a standard policy $\pi(a|s_0)$ must choose either always $a_0$ or always $a_1$. It compares the total expected discounted value of always looping ($V = R_1 / (1-\gamma^2)$) versus the value of terminating ($V = R_2$). Since we assumed $R_2 > R_1/(1-\gamma^2)$, the optimal Markovian policy is to always choose $a_1$ from state $s_0$. It cannot implement the "loop then switch" plan.
+Given state $s_0$, a standard policy $\pi(a|s_0)$ must choose either always $a_0$ or always $a_1$. It compares the total expected discounted return of always looping - $R = R_1 / (1-\gamma^2)$ - versus the return of terminating - $R = R_2$. Since we assumed $R_2 > R_1/(1-\gamma^2)$, the optimal Markovian policy is to always choose $a_1$ from state $s_0$. It cannot implement the "loop then switch" plan.
 
 Why? The policy function $\pi(a|s)$ doesn't have access to the history or the total accumulated reward unless that information is part of the state $s$. It makes the best decision based only on the information contained in $s$.
 
-**Can RL Ever "Act Like Us"?**
+**Can RL "Act Like Us"?**
 
 Yes! But it requires acknowledging that the "loop then switch" strategy implies the simple state $s \in \{s_0, s_1, s_2\}$ isn't sufficient (it's not Markovian for that strategy). To achieve this behavior, we would need to:
 
-- **Enhance the State Representation**: Define the state to include history, for example, $s' = (s, \text{loop\_count})$. Now the policy $\pi(a|s')$ can learn to choose $a_0$ when loop_count is low and $a_1$ when loop_count is high, because the necessary information is in the state.
+- **Enhance the State Representation**: Define the state to include history, for example, $s' = (s, \text{loop\_count})$. Now the policy $\pi(a|s')$ can learn to choose $a_0$ when `loop_count` is low and $a_1$ when `loop_count` is high, because the necessary information is in the state.
 
 - **Use stochastic policy**: a policy does not have to be deterministic. A stochastic policy can choose actions with some probability given the current state. For example, in this case, given state $s_0$, the policy can converge to $\pi(a_0|s_0) = 0.9$ and $\pi(a_1|s_0) = 0.1$, meaning that with 90% chance the agent will choose $a_0$. This way it will earn more rewards, until eventually it randomly (with p = 0.1) chooses to go to $s_2$ and terminate the game.
 
@@ -171,7 +170,7 @@ V^\pi(s) = \mathbb{E}_\pi \left[ \sum_{k=1}^\infty r_{t+1} + \gamma^k r_{t+k+1} 
 V^\pi(s) = \mathbb{E}_\pi \left[ r_{t+1} + \gamma V^\pi(s_{t+1}) \mid S_t = s \right]
 $$
 
-So, our $V(s_t)$ is a reward that we get when we transition to some next state $s_{t+1}$ plus the $V(s_{t+1})$ discounted by $\gamma$. Since there could be several possible next states and there are various actions that can lead to those states, we should find an expectation over all possible actions and next states.
+So, our $V(s_t)$ is a reward that we get when we transition to some next state $s_{t+1}$ plus the value of that state $V(s_{t+1})$ discounted by $\gamma$. Since there could be several possible next states and there are various actions that can lead to those states, we should find an expectation over all possible actions and next states.
 
 For a given policy $\pi$, the Bellman equation for the state value function is:
 
@@ -191,14 +190,23 @@ which is basically the same as for state value function, except that we evaluate
 
 ## A quick example 
 
-The agent is in state $s_0$, it has two actions to choose from $a_1, a_2$. Let's say that if the agent chooses $a_1$, then it flips a coin and based on the result it can either be transited to $s_1$ and getting reward = 10 or $s_2$ and getting reward = -4. Alternatively, taking action $a_2$ always leads to state $s_3$ with reward = 2. And finally, let's say that there is already some defined policy that favours second action $a_2$ giving to it 70% probability. 
+The agent is in state $s_0$, it has two actions to choose from $a_1, a_2$. 
+- Let's say that if the agent chooses $a_1$, then it flips a coin and based on the result it can either be transited to $s_1$ and getting reward = 10 or $s_2$ and getting reward = -4. 
+- Alternatively, taking action $a_2$ always leads to state $s_3$ with reward = 2. 
+- Assume $V(s_1) = V(s_2) = V(s_3) = 0$, i.e. all of these states are terminal, there is no more reward after we transit to them.
+- And finally, let's say that there is already some defined policy that favours second action $a_2$ giving to it 70% probability - $\pi(a|s_0) = [0.3, 0.7]$
 
-So, our $Q(s, a)$ would be (assuming $V(s_1) = V(s_2) = 0$, i.e. both of these states are terminal, there is no more reward after we transit to them ):
+So, our $Q(s, a)$ would be:
 
 $$
-Q(s_0, a_1) = 0.5 \cdot (10 + V(s_1)) + 0.5 \cdot (-4 + V(s_2)) = 3  \\
+Q(s_0, a_1) = 0.5 \cdot (10 + V(s_1)) + 0.5 \cdot (-4 + V(s_2)) = 3  
+$$
+where $P(s_1, 10 | s_0, a_1) = P(s_2, -4 | s_0, a_2) = 0.5$, i.e. 50% chance of a coin landing on either head or tail.
+
+$$
 Q(s_0, a_2) = 1 \cdot (2 + V(s_3)) = 2
 $$
+where $P(s_3, 2 | s_0, a_2) = 1$, i.e. no other alternatives it is the only option.
 
 And finally, our $V(s_0)$ is simply a sum of both Q(s, a) weighted by their probabilities:
 
@@ -212,7 +220,7 @@ So, under this defined policy our value for that state is 1.7.
 
 ## How to derive $Q$ from $V$ and $V$ from $Q$
 
-The two value functions are tightly connected. In fact, if you know one, you can compute the other — at least in principle.
+The two value functions are tightly connected. In fact, if you know one, you can compute the other - at least in principle.
 
 - **Deriving $Q$ from $V$:**  
   If you know $V^\pi(s)$ for all $s$, you can compute $Q^\pi(s, a)$ using the Bellman equation:
@@ -315,7 +323,7 @@ Let $V^{\pi}(S_1)$ and $V^{\pi}(S_2)$ be the value functions for each state unde
 - Only one possible transition:
 
   $
-  V^{\pi_2}(S_1) = 0 \cdot (0.7 \cdot [-7 + 0.9 V^{\pi_2}(S_1)] + 0.3 \cdot [20 + 0.9 V^{\pi_2}(S_2)]) +  1s \cdot [1 + 0.9 V^{\pi_2}(S_2)]
+  V^{\pi_2}(S_1) = 0 \cdot (0.7 \cdot [-7 + 0.9 V^{\pi_2}(S_1)] + 0.3 \cdot [20 + 0.9 V^{\pi_2}(S_2)]) +  1 \cdot [1 + 0.9 V^{\pi_2}(S_2)]
   $
 
   Substitute $V^{\pi_2}(S_2) = 0$:
@@ -404,9 +412,9 @@ Q^*(s, a) = \sum_{s', r} P(s', r \mid s, a) \left[ r + \gamma \max_{a'} Q^*(s', 
 $$
 
 **Clear Explanation:**  
-This equation is the heart of TD learning that we explore next. It says: The value of taking a specific action $a$ in state $s$ is the immediate reward $r$ you get, **plus** the discounted value of the future state.
+This equation is the heart of TD learning that we explore next. It says: The value of taking a specific action $a$ in state $s$ is the immediate reward $r$ you get, **plus** the discounted optimal value of the future state.
 
-But what is the future state value? It's the value you get by assuming that once you land in the next state $s'$, you will continue to act optimally from that point forward. That's what the $\max_{a'} Q^*(s', a')$ term means: from your new state $s'$, look ahead at all possible next actions $a'$ and pick the one with the highest Q-value. This recursive nature—defining the optimal value in terms of the optimal value of the next state—is what allows algorithms like Q-learning to iteratively find the solution.
+But what is the future state value? It's the value you get by assuming that once you land in the next state $s'$, you will continue to act optimally from that point forward. That's what the $\max_{a'} Q^*(s', a')$ term means: from your new state $s'$, look ahead at all possible next actions $a'$ and pick the one with the highest Q-value. This recursive nature—defining the optimal value in terms of the optimal value of the next state - is what allows algorithms like Q-learning to iteratively find the solution.
 
 So, in our quick example above, the defined policy was not the optimal, the optimal policy would be the one that chooses action based on the highest Q-value. 
 
@@ -422,7 +430,7 @@ This process works because the Bellman update is a special kind of function call
 
 ---
 
-### An Analogy: Finding a Fixed Point
+### Fixed point iteration
 
 To build intuition, let's look at a simple math problem: find the number $x$ where $\cos(x) = x$. How would you solve this without advanced math? You could use **fixed-point iteration**!
 
@@ -493,9 +501,19 @@ $$
 V(s) = \mathbb{E}[\sum_{t=0}^\infty R_t | S_t = s]
 $$
 
-it's the expected total return (cumulative reward) you get starting from that state and acting according to the policy. And the optimal state values are the one that maximize the total return. So, what if instead of trying to compute it via Bellman equations we just... measured it? And can we do it? Of course we can! 
+it's the expected total return (cumulative reward) you get starting from that state and acting according to the policy. And the optimal state values are the one that maximize the total return. So, what if instead of trying to compute it via Bellman equations we just... measured it? 
+
+I mean let the agent play one episode, by summing all discounted rewards in the trajectory after some specific state $s$ you get the total return. This total return is a good guess of true value of that specific state, it is not perfect of course, but who said that we cannot play thousands of episodes to improve our guess?
 
 The big idea of Monte Carlo method is to estimate the expected value by simply averaging the returns we've actually observed.
+
+---
+
+**A quick side-note**
+
+The name is a direct nod to the famous Monte Carlo Casino in Monaco. This is because the method's core idea - estimating an unknown value by generating a large number of random samples and averaging the results - is analogous to studying a game of roulette by playing it thousands of times. The term was coined by physicists like John von Neumann and Stanislaw Ulam during the Manhattan Project. They needed a code name for their secret work using this statistical simulation method, and the famous casino, a center of chance and probability, was a perfect fit.
+
+---
 
 ### Core Idea
 
@@ -509,11 +527,10 @@ MC updates use only actual, complete returns, $G_t$, from experience. They don't
 
 This reliance on complete episodes explains why MC methods might feel different from a simple notion of "play and learn based on your reward immediately". Updates only happen retrospectively after the final outcome is known. In other words, we are not learning while we are playing; we only learn once we have finished. 
 
----
 
 ### Estimating V(s) vs. Q(s,a) in Model-Free Learning
 
-A quick side-note on what we actually want to compute. As we already know, we have two main values that we estimate: $V(s)$ and $Q(s,a)$. What is more valuable to compute?
+An important note on what we actually want to compute. As we already know, we have two main values that we estimate: $V(s)$ and $Q(s,a)$. What is more valuable to compute?
 
 While learning $V^*(s)$ (the optimal state value) might seem sufficient, consider how an agent chooses an action. If it only knows $V^*(s)$, to decide the best action $a$ from state $s$, it still needs a model to look ahead one step:
 
@@ -533,7 +550,7 @@ The agent just needs to compare the learned Q-values for all actions possible in
 
 ---
 
-### Pseudocode: Monte Carlo Prediction (First-Visit MC)
+### Pseudocode: First-Visit MC
 
 1. Initialize:
     - For all states $s$ and actions $a$, set $Q(s, a) = 0$
@@ -552,7 +569,7 @@ This algorithm estimates the value of each state as the average return observed 
 
 So, Monte Carlo methods require waiting until the end of an episode to update value estimates. The obvious question is: can we learn during the episode, essentially learning as we play? The answer is yes, using Temporal Difference (TD) learning.
 
-The core idea is to use the Bellman equation structure, but instead of needing the full model, we update our estimates based on other estimates – a process called bootstrapping. This might sound similar to Value Iteration, where we updated $V_k$ using $V_{k-1}$. However, Value Iteration required the environment model to compute the expected values across all possible next states and rewards.
+The core idea is to use the Bellman equation structure, but instead of needing the full model, we update our estimates based on other estimates - a process called bootstrapping. This might sound similar to Value Iteration, where we updated $V_k$ using $V_{k-1}$. However, Value Iteration required the environment model to compute the expected values across all possible next states and rewards.
 
 In model-free TD settings, we don't have the model. Instead, we learn directly from the experience tuples $<s, a, r, s'>$ as we generate them. After taking action $a$ in state $s$ and observing the immediate reward $r$ and the next state $s'$, we can immediately use this information to improve our estimate for the value of state $s$ (or state-action pair $(s,a)$). We learn one step at a time, using the observed transition rather than a known probability distribution.
 
@@ -594,13 +611,13 @@ Now, we know how to update our $Q(s,a)$ estimate once we have an experience tupl
 
 This leads to a fundamental dilemma in reinforcement learning: **Exploration vs. Exploitation.**
 
-- **Exploitation**: Acting based on the current knowledge to maximize immediate expected reward. This means choosing the action $a$ that currently has the highest estimated Q-value: $a = \arg\max_{a'} Q(s, a')$. This is often called acting greedily. And it totally makes sense, if we know that taking a certain action $a$ is the best option we have, we don't we choose it? This is the essence of exploitation.
+- **Exploitation**: Acting based on the current knowledge to maximize immediate expected reward. This means choosing the action $a$ that currently has the highest estimated Q-value: $a = \arg\max_{a'} Q(s, a')$. This is often called acting greedily. And it totally makes sense, if we know that taking a certain action $a$ is the best option we have, why not choosing it? This is the essence of exploitation.
 
 - **Exploration**: Trying out actions that don't currently look like the best option. This might involve choosing an action $a \neq \arg\max_{a'} Q(s, a')$. This is necessary to discover potentially better actions whose values might initially be underestimated, or simply to get more accurate estimates for all actions.
 
 - **The Dilemma:** If the agent only exploits, it might get stuck in a suboptimal routine because it never tries actions that could potentially lead to much higher long-term rewards. If the agent only explores (e.g., acts randomly), it performs poorly because it never leverages the knowledge it has gained. Finding a good balance is critical for effective learning.
 
-#### Why Exploration is Crucial for Q-Learning:
+### Why Exploration is Crucial for Q-Learning:
 
 Q-learning aims to find the optimal Q-values, $Q^*(s,a)$. Its update rule uses the $\max_{a'} Q(s', a')$ term, which inherently learns about the value of acting greedily in the future. However, to ensure that the Q-values themselves converge correctly for all relevant state-action pairs, the agent needs to actually visit those pairs.
 
@@ -608,9 +625,9 @@ If the agent acts purely greedily from the start based on potentially poor initi
 
 Exploration, especially early in training when Q-value estimates are inaccurate, is essential to gather information across all possible actions and ensure that the estimates can eventually converge to their true optimal values.
 
-#### The Epsilon-Greedy Policy
+### The Epsilon-Greedy Policy
 
-A simple and widely used strategy to balance exploration and exploitation during learning is the **$\epsilon$-greedy policy**. The following logic is applied:
+A simple and widely used strategy to balance exploration and exploitation during learning is the **epsilon-greedy policy**. The following logic is applied:
 
 - Choose a small value for $\epsilon$ (epsilon), typically between 0 and 1 (e.g., 0.1).
 - With probability $1 - \epsilon$: Exploit by choosing the action with the highest current Q-value: $a = \arg\max_{a'} Q(s, a')$.
@@ -652,13 +669,13 @@ The main issue is that the $\max$ operator tends to overestimate the true value 
 
 2. **Propagation of Errors**
 
-Imagine that the max operator chose the bogus best action in the next state (its Q values was high because of noise and our inaccuracy in estimation), we use its Q-value to improve our estimate of the current state. So, now our estimate for this state is even worse than it was before, and now this wrong estimation will affect other estimations. Basically, because Q-learning always updates towards the maximum, any overestimated Q-value can propagate through the value function, making the problem worse as learning progresses.
+Imagine that the max operator chose the bogus best action in the next state (its Q values was high because of noise and our inaccuracy in estimation), we use its Q-value to improve our estimate of the current state. So, now our estimate for this state is even worse than it was before, and now this wrong estimation will affect other estimations like a falling domino. Basically, because Q-learning always updates towards the maximum, any overestimated Q-value can propagate through the value function, making the problem worse as learning progresses.
 
 To decrease effects of these problems, SARSA, in contrast, uses the Q-value of the actual action taken in the next state (following the current policy, often $\epsilon$-greedy), not the maximum. Its TD target is:
 
 $$ \text{TD Target}_{\text{SARSA}} = r + \gamma Q(s', a') $$
 
-where $a'$ is the action actually chosen in $s'$. This makes SARSA more conservative and less prone to overestimation, especially in noisy environments. So, SARSA stands for the tuple that we gather: $<s, a, r, s', a'>$
+where $a'$ is the action actually chosen in $s'$. This makes SARSA more conservative and less prone to overestimation, especially in noisy environments. Name SARSA stands for the tuple that we gather: $<s, a, r, s', a'>$
 
 So, the pseudo-code is extremely similar to Q-learning with just one modification:
 
@@ -671,7 +688,7 @@ So, the pseudo-code is extremely similar to Q-learning with just one modificatio
     3. Update Q-value for this state-action pair 
         1. Calculate the TD target: $ y = r + \gamma Q(s', a') $. If the next state is terminal, then the target is simply: $ y = r $
         2. Update the current Q-value estimate using moving average: $Q(s,a) \leftarrow Q(s,a) + \alpha (y - Q(s,a))$
-    4. Set $s$ to $s'$
+    4. Set $s$ to $s'$; $a$ to $a'$
 
 ## Variants of SARSA
 
@@ -695,7 +712,7 @@ There are various variants of SARSA, one of them is **Expected Value SARSA (EV-S
 
 ### EV-SARSA: Even More On-Policy
 
-**EV-SARSA** takes this a step further. It recognizes that SARSA's update, while on-policy, is still based on a single, potentially noisy sample ($a'$). If $a'$ was a random exploration move, it gives a poor representation of the true value of being in state $s'$.
+**EV-SARSA** takes this a step further. It recognizes that SARSA's update, while on-policy, is still based on a single, potentially noisy sample $a'$. If $a'$ was a random exploration move, it gives a poor representation of the true value of being in state $s'$.
 
 EV-SARSA aims to compute the true expected value of the next state under the current policy. As you remember, the state-value $V(s)$ is the weighted sum of all possible Q-values, where the weights are the probabilities of taking each action.
 
@@ -720,7 +737,7 @@ First, let's compute the probability of choosing an action which is not the opti
 Independent conditions mean that the resulting probability is the product of them:
 
 $$
-p(a \neq \arg\max_a Q(s, a)) = \epsilon \cdot \frac{1}{N}
+p(a \neq \arg\max_a Q(s, a)) = \epsilon \cdot \frac{N-1}{N}
 $$
 
 where N is the total number of actions. 
@@ -729,7 +746,7 @@ Similarly, to choose optimal action there are two mutual exclusive ways:
 - The greedy action is picked because of $\epsilon$ strategy; probability of it $ p = 1 - \epsilon$ 
 - During exploration:
     - Epsilon strategy let's us pick a random action instead of the greedy one; probability of it $ p = \epsilon $
-    - We sampling a random action among N-possible actions (each action has an equal probability of picking); probability of it $ p = \frac{1}{N} $
+    - We sampling a greedy action among N-possible actions (each action has an equal probability of picking); probability of it $ p = \frac{1}{N} $
 
 Mutual exclusion means that the total probability is the sum of these two ways:
 
@@ -766,13 +783,13 @@ A good way to compare these algorithms is to set them free in a carefully design
 <img src="figures/windy-env.png" />
 </p>
 
-The agent's goal is to get from the starting position (the blue circle) to the goal cell (green). A bridge (tan cells) offers a direct and short path. However, this path is risky: if the agent is on the bridge and takes any action other than moving forward (to the right), there is a 90% chance the "wind" will push it into the chasm (dark blue cells), resulting in a large negative reward and ending the episode.
+The agent's goal is to get from the starting position (the blue circle) to the goal cell (green). A bridge (tan cells) offers a direct and short path. However, this path is risky: if the agent is on the bridge and takes any action other than moving forward to the goal (to the right), there is a 90% chance the "wind" will push it into the chasm (dark blue cells), resulting in a large negative reward and ending the episode. Additionally, each step results in a low negative reward to force the agent to find the shortest path.
 
 This simple environment is solvable by all three algorithms, but as we'll see, their final converged policies are quite different.
 
 What is your intuition? How would each algorithm behave?
 
-To find out, I trained each agent and then plotted its final, greedy policy. A quick note on the training: I used a high exploration rate (epsilon) in the beginning, which was decayed slowly. This ensures that the agents definitely experienced falling into the chasm and are aware of the danger of the bridge path.
+To find out, I trained each agent and then plotted its final greedy policy. A quick note on the training: I used a high exploration rate (epsilon) in the beginning, which was decayed slowly. This ensures that the agents definitely experienced falling into the chasm and are aware of the danger of the bridge path.
 
 ### Q-Learning: The Optimist
 
@@ -794,7 +811,7 @@ SARSA, as we can see, learns a very different and much more cautious strategy. I
 
 This is a direct consequence of its on-policy update rule. SARSA learns the value of the policy it is actually following, including its random exploratory (ε-greedy) moves. Because it occasionally takes a random action on the bridge and suffers the huge penalty of falling into the chasm, the Q-values for the bridge states become very low. The agent learns from its own painful mistakes.
 
-The policy clearly shows this learned behavior. All the cells near the bridge have arrows pointing away from it. SARSA prioritizes safety over the most direct path to the goal. Interestingly, if it ever does find itself on the bridge, it knows the best action is to move forward to the goal, so SARSA is aware that the bridge is the most optimal path. But its overall strategy is to avoid that situation entirely, even if it means taking a suboptimal path.
+The policy clearly shows this learned behavior. All the cells near the bridge have arrows pointing away from it. SARSA prioritizes safety over the most direct path to the goal, even if it means taking a suboptimal path.
 
 ### EV-SARSA: The Calculated Realist
 
@@ -975,7 +992,7 @@ Using the eligibility traces can improve the original SARSA algorithm resulting 
 - **Drawbacks**
 
     - Adds another hyperparameter, $\lambda$, which needs to be tuned.
-    - Can be more computationally intensive per step if implemented naively by explicitly looping through and updating all Q-values and traces (as in the tabular pseudocode). For function approximation, the trace vector has the same size as the parameter vector, making this more efficient.
+    - Can be more computationally intensive per step if implemented naively by explicitly looping through and updating all Q-values and traces (as in the tabular pseudocode).
 
 In essence, N-step TD learning generalizes one-step TD and MC by choosing a fixed lookahead $N$.
 
@@ -998,9 +1015,9 @@ We introduced two fundamental concepts that quantify the "goodness" of states an
 - **State Value Function V(s)**: Measures how valuable it is to be in a particular state
 - **State-Action Value Function Q(s,a)**: Measures how valuable it is to take a specific action in a specific state
 
-These functions are interconnected through the **Bellman Equations**, which express the recursive relationship between current and future values. The optimal versions of these functions, V*(s) and Q*(s,a), represent the best possible performance achievable in the environment.
+These functions are interconnected through the **Bellman Equations**, which express the recursive relationship between current and future values. The optimal versions of these functions, $V^*(s)$ and $Q^*(s,a)$, represent the best possible performance achievable in the environment.
 
-The **Bellman Optimality Equations** give us our target: they define what the optimal value functions should satisfy. However, computing these directly requires knowing the environment model, which leads us to two paradigms:
+The **Bellman Optimality Equations** give us our target: they define what the optimal value functions should satisfy. However, computing these directly requires knowing the environment model, which leads us to two paradigms.
 
 ## From Model-Based to Model-Free Learning
 
@@ -1036,10 +1053,6 @@ The bridge environment example beautifully illustrated how these philosophical d
 ## The Exploration-Exploitation Dilemma
 
 Throughout our journey, we encountered the fundamental tension in RL: the need to balance **exploration** (trying new actions to discover better strategies) with **exploitation** (using current knowledge to maximize immediate reward). The ε-greedy policy provides a simple yet effective solution, but this dilemma permeates all aspects of RL algorithm design.
-
-## The Credit Assignment Problem
-
-Perhaps most elegantly, we saw how **eligibility traces** solve the temporal credit assignment problem - determining which past actions deserve credit or blame for current outcomes. This mechanism allows TD(λ) methods to efficiently propagate learning signals backward through time, bridging the gap between immediate feedback and long-term consequences.
 
 ## Looking Forward
 

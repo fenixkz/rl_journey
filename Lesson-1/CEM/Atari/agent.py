@@ -12,7 +12,7 @@ from typing import List
 import multiprocessing as mp
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-from utils.atari_utils import get_atari_env, clip_reward
+from utils.atari_utils import get_atari_env, clip_reward, auto_fire
 
 def set_seed(seed):
     """Set random seeds for reproducibility"""
@@ -386,6 +386,7 @@ class EnhancedCEMAgent(nn.Module):
 
     def play_one_episode(self, random: bool = False, add_action_noise: bool = False):
         obs, _ = self.env.reset()
+        if self.is_atari: obs = auto_fire(self.env)
         history = []
         done = False
         total_reward = 0

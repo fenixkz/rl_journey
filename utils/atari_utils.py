@@ -23,3 +23,12 @@ def get_atari_env(env_id: str, terminal_on_life: bool = True) -> gym.Env:
 
 def clip_reward(reward: float) -> float:
     return np.sign(reward)
+
+def auto_fire(env: gym.Env):
+    '''
+    Auto-fire button pressing at the start for ATARI envs
+    '''
+    action_descr = env.unwrapped.get_action_meanings()
+    fire_action = action_descr.index("FIRE")
+    obs, _, _, _, _ = env.step(fire_action)
+    return obs

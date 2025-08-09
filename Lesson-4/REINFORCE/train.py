@@ -11,29 +11,14 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from utils.multi_env import ENVIRONMENTS
-
+from utils.classic_config import CLASSIC_ENV_CONFIG
+import random
 from tqdm import tqdm
+
 SEED = 24  # This number is used to ensure reproducibility, use any integer you like
 
 
-def set_seed():
-    """
-    Set the seed for the environment and PyTorch.
-    """
-    # Set NumPy random seed
-    np.random.seed(SEED)
 
-    # Set PyTorch random seed
-    torch.manual_seed(SEED)
-
-    # If using CUDA, also set CUDA random seed
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(SEED)
-        torch.cuda.manual_seed_all(SEED)  # For multi-GPU setups
-        # Make CUDA operations deterministic (may impact performance)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
 
 def create_agent(obs_space, action_space, device) -> torch.nn.Module:
     """
@@ -99,7 +84,9 @@ def train_environment(env_name, config, verbose=True):
 
     # Create progress bar
     pbar = tqdm(range(config['max_episodes']), desc=f"Training {env_name}", disable=not verbose)
-
+    # First reset for reproducing same results
+    env.reset(seed = SEED)
+    env.action_space.seed(SEED)
     for e in pbar:
         state, _ = env.reset(seed=SEED+e)  # Reset with different seed for each episode
         done = False
@@ -197,34 +184,6 @@ def train_environment(env_name, config, verbose=True):
     pbar.close()
     return episode_rewards, agent
 
-def evaluate_performance(rewards, config):
-    """
-    Evaluate if the agent has solved the environment
-    
-    Args:
-        rewards: List of episode rewards
-        config: Environment configuration
-    
-    Returns:
-        solved: Boolean indicating if environment is solved
-        avg_reward: Average reward over last 100 episodes
-        solve_episode: Episode where environment was first solved (or None)
-    """
-    if len(rewards) < 100:
-        return False, np.mean(rewards), None
-    
-    # Check when environment was first solved
-    solve_episode = None
-    for i in range(100, len(rewards)):
-        avg_reward = np.mean(rewards[i-100:i])
-        if avg_reward >= config['solved_threshold']:
-            solve_episode = i
-            break
-    
-    final_avg = np.mean(rewards[-100:])
-    solved = final_avg >= config['solved_threshold']
-    
-    return solved, final_avg, solve_episode
 
 def plot_single_environment(env_name, rewards, config, save_dir="figures"):
     """Plot results for a single environment"""

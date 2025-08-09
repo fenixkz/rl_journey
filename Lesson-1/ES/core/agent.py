@@ -10,7 +10,7 @@ import random
 from typing import List
 import multiprocessing as mp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-from utils.atari_utils import get_atari_env, clip_reward
+from utils.atari_utils import get_atari_env, clip_reward, auto_fire
 from collections import deque
 
 def set_seed(seed):
@@ -211,6 +211,7 @@ class ESAgent(nn.Module):
     def play_one_episode(self):
         """Plays one episode using the provided agent and returns the total reward."""
         state, _ = self.env.reset()
+        if self.is_atari: state = auto_fire(self.env)
         done = False
         total_reward = 0
         while not done:
@@ -326,8 +327,8 @@ class ESAgent(nn.Module):
                 current_noise_std *= 1.1
                 pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Stuck! ↑ noise: {current_noise_std:.3f})")
             else:
-                # If improving, decrease noise slightly for finer tuning
-                current_noise_std *= 0.99
+                # If improving, decrease noise for finer tuning
+                current_noise_std *= 0.5
                 pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Improving ↓ noise: {current_noise_std:.3f})")
 
             # Add bounds to prevent noise from exploding or vanishing
