@@ -71,8 +71,8 @@ class AgentDQN(DQNBase):
         self.optimizer.step()
         return loss.item()
     
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
-        rewards_log = deque(maxlen=mean_n_episodes)
+    def train(self, all_rewards: List, std_rewards: List, max_steps: int = 100000, timeout: float = None):
+        rewards_log = deque(maxlen=25)
         
         obs, _ = self.env.reset()
         if self.is_atari: obs = self.auto_fire()
@@ -101,13 +101,11 @@ class AgentDQN(DQNBase):
                     self.update_target_network()   
 
             if done:
-                if "episode" in info: rewards_log.append(info['episode']['r'])
+                if "episode" in info: 
+                    rewards_log.append(info['episode']['r'])
+                    all_rewards.append(info['episode']['r'])
                 episode += 1
                 mean_reward = np.mean(rewards_log)
-                if len(rewards_log) == mean_n_episodes:
-                    mean_rewards.append(mean_reward)
-                    std_rewards.append(np.std(rewards_log))
-
                 
                 if mean_reward > self.solved_reward:
                     print(f"Solved! Mean reward: {mean_reward}")

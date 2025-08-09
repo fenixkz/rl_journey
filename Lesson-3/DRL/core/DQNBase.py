@@ -11,6 +11,9 @@ from core.configs import AgentConfig
 from typing import Dict
 from collections import deque
 import random 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
+from utils.atari_utils import auto_fire, clip_reward
 
 def set_seed(seed):
     """Set random seeds for reproducibility"""
@@ -122,7 +125,10 @@ class DQNBase(ABC):
 
     def clip_reward(self, reward):
         """Implements the DeepMind reward clipping. Turn all reward either to +1 or -1"""
-        return np.sign(reward)
+        return clip_reward(reward)
+
+    def auto_fire(self):
+        return auto_fire(self.env)
 
     def save_model(self, save_path: str):
         '''
@@ -202,5 +208,5 @@ class DQNBase(ABC):
         pass
 
     @abstractmethod
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
+    def train(self, all_rewards: List, max_steps: int = 100000, timeout: float = None):
         pass

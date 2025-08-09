@@ -9,6 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from utils.plot_utils import get_figure
 from utils.atari_config import ATARI_CONFIGS
 from utils.classic_config import CLASSIC_ENV_CONFIG
+from utils.atari_utils import get_atari_env
 import argparse
 from rich import print as pprint
 from core.agent_registry import registry
@@ -58,18 +59,7 @@ def main(args):
     is_atari = 'ALE/' in env_id
 
     if is_atari: # We need extra wrappers for Atari envs
-        # Create the environment, explicitly set frame_skip = 1 for Atari games
-        env = gym.make(env_id, frameskip = 1)
-        env = AtariPreprocessing(
-                                env,
-                                noop_max=30,        # To make each episode a bit different
-                                frame_skip=4,       # The agent makes a move for next 4 frames, i.e. moves left for 4 frames to speed up training
-                                screen_size=84,     # Rescale original image to 84x84
-                                grayscale_obs=True, # RGB to GrayScale
-                                scale_obs=True,     # Normalize the pixel values from [0-255] to [0-1]
-                                terminal_on_life_loss=True, # Restart the episode on the first life loss, instead of waiting for all lifes losses
-                            )
-        env = gym.wrappers.FrameStackObservation(env, stack_size=4) # Stack last 4 frames as the observation to encode the velocity information
+        env = get_atari_env(env_id)
 
         # Add to the config default params of the algorithm (gamma, batch_size and etc.)
         agent_config = AgentConfig.from_dict(DEFAULT_ATARI_PARAMS)
@@ -82,12 +72,10 @@ def main(args):
     env = gym.wrappers.RecordEpisodeStatistics(env) 
     
     # Common hyperparams
-    mean_n = 20 # for performance tracking, calculate mean over this many episodes
     agent_config.seed = args.seed # Overwrite seed
 
     agent: DQNBase = registry.create_agent(agent_number, env, agent_config, env_config, is_atari)
-    mean_rewards = []
-    std_rewards = []
+    all_rewards = []
 
     save_path = os.path.join("results", agent.get_name(), env_name)
     os.makedirs(save_path, exist_ok=True)
@@ -96,8 +84,10 @@ def main(args):
         """A non-interactive function to save model and plot to file."""
         print("\nSaving model and plotting results to file...")
         agent.save_model(save_path)
-        if mean_rewards and std_rewards:
-            fig = get_figure(mean_rewards, std_rewards, num_episodes=mean_n)
+        if all_rewards:
+            fig = get_figure(all_rewards=all_rewards, 
+                             solved_threshold=env_config.get("solved_reward", 100),
+                             window_size=50)
             print("Generated the figure")
             save_file_path = os.path.join(save_path, "rewards.jpg")
             try:
@@ -113,7 +103,7 @@ def main(args):
 
     training_completed_successfully = False
     try:
-        agent.train(mean_rewards, std_rewards, max_steps=agent_config.max_steps, mean_n_episodes=mean_n)
+        agent.train(all_rewards, max_steps=agent_config.max_steps)
         training_completed_successfully = True
     except KeyboardInterrupt:
         print("\nTraining interrupted by user (Ctrl+C).")
@@ -125,7 +115,9 @@ def main(args):
     if training_completed_successfully:
         print("\nTraining completed successfully. Displaying final plot.")
         # Re-create the figure from the final data and show it.
-        final_fig = get_figure(mean_rewards, std_rewards, num_episodes=mean_n)
+        final_fig = get_figure(all_rewards=all_rewards, 
+                             solved_threshold=env_config.get("solved_reward", 100),
+                             window_size=50)
         plt.show()
 
 if __name__=='__main__':
