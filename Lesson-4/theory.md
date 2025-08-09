@@ -122,7 +122,7 @@ Now, here's the key insight: $p(s_{t+1} | s_t, a_t)$ is the environment's transi
 
 This leaves us with a much simpler expression:
 
-$\nabla_\theta \log p(\tau; \theta) = \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(a_t | s_t)$
+$$\nabla_\theta \log p(\tau; \theta) = \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(a_t | s_t)$$
 
 In other words, the gradient of the log-probability of a trajectory (with respect to our policy parameters) is simply the sum of the gradients of the log-probabilities of the actions taken in that trajectory! Incredible, right? Don't tell me wishes never come true again! These $\log \pi_\theta(a_t|s_t)$ terms are things our policy network computes (or are directly related to its outputs), and we can calculate their gradients.
 
@@ -256,9 +256,9 @@ $$
 \theta \leftarrow \theta + \alpha \nabla_\theta E_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{T-1} G_t \nabla_\theta \log \pi_\theta(a_t | s_t) \right]
 $$
 
-The return term can be very different depending on the problem. As a rule of thumb, deep learning does not really like extreme values and prefers to work with Gaussian-normalized values (zero mean and unit variance). So, usually, normalizing returns (within one episode) helps to make the learning process more stable. However, sometimes it can make the learning very, very slow and even make it worse. You might have even noticed this in an environment like CartPole! Let's dig into why this "good practice" can sometimes backfire:
+The return term can be very different depending on the problem. As a rule of thumb, deep learning does not really like extreme values and prefers to work with Gaussian-normalized values (zero mean and unit variance). So, usually, normalizing returns (within one episode) helps to make the learning process more stable. However, sometimes it can make the learning very, very slow and even make it worse. You might have even noticed this in an environment like CartPole! Let's dig into why this "good practice" can sometimes backfire.
 
-**Loss of Absolute Performance Signal:**
+**Loss of Absolute Performance Signal**
 
 When we normalize the returns $G_t$ within a single episode (by subtracting the mean of that episode's $G_t$'s and dividing by their standard deviation), we're essentially ranking actions based on how well they performed relative to other actions in that specific episode.
 
@@ -266,23 +266,7 @@ When we normalize the returns $G_t$ within a single episode (by subtracting the 
 - Now imagine a great episode of 200 steps. Again, normalization scales these returns.
 - The problem is, the agent might lose a clear signal about what constitutes an absolutely good outcome (like an episode of 200 steps) versus an absolutely bad one (15 steps). If all normalized returns end up in a similar range (e.g., roughly -2 to +2), it can be harder for the agent to strongly differentiate between an action that led to a truly long episode versus one that led to a mediocre one.
 
-In CartPole: The reward is +1 for every step the pole is balanced. The raw $G_t$ (which, if $\gamma \approx 1$, is roughly the number of remaining steps) directly tells the agent how good an action was in terms of future survival. Normalizing this might obscure the simple "longer is better" signal, especially if the episode lengths vary a lot. An action leading to $G_t=50$ is unambiguously better than one leading to $G_t=10$. After normalization within their respective (potentially short) episodes, their processed values might not reflect this absolute difference as strongly.
-
-**Noisy Statistics from Short Episodes:**
-
-Early in training, or if the agent is struggling, episodes can be very short. If you normalize returns based on just a few data points (e.g., an episode of 5-10 steps in CartPole), the calculated mean and standard deviation for that episode's $G_t$ values can be very unreliable and noisy.
-
-If the standard deviation within a short episode is tiny (e.g., returns are 5, 4, 3, 2, 1), dividing by this tiny $\sigma_G$ (plus a small epsilon) can blow up the normalized returns to very large positive or negative values. This can make your gradients huge and unstable, ironically the opposite of what normalization aims to achieve!
-
-**It Can Mask True Progress or Regressions:**
-
-If the agent generally improves from averaging 20 steps to averaging 30 steps, but the within-episode normalized returns look statistically similar in both cases, it's harder for the gradient updates to strongly reflect that overall improvement. The agent is always seeing returns scaled to a standard range for that particular episode's performance.
-
-This is less of an issue if normalization is done across a large batch of diverse, complete episode returns, but for REINFORCE where it's often applied to the $G_t$ values within a single collected episode, this effect can be more pronounced.
-
-**Simpler Environments Might Not Need It (or Benefit Less):**
-
-In environments like CartPole, the reward signal (+1 per step) is very clear, and the state space isn't excessively complex. The raw returns $G_t$ already provide a decent learning signal. The massive variance that normalization helps combat in complex Atari games (with varying reward scales, sparse rewards, etc.) might not be as big of a villain in CartPole.
+For example in CartPole the reward is +1 for every step the pole is balanced. The raw $G_t$ (which, if $\gamma \approx 1$, is roughly the number of remaining steps) directly tells the agent how good an action was in terms of future survival. Normalizing this might obscure the simple "longer is better" signal, especially if the episode lengths vary a lot. An action leading to $G_t=50$ is unambiguously better than one leading to $G_t=10$. After normalization within their respective (potentially short) episodes, their processed values might not reflect this absolute difference as strongly.
 
 ### Entropy Exploration 
 ---
@@ -417,12 +401,12 @@ $$
 = b(s_t) \sum_{a_t} \nabla_\theta \pi_\theta(a_t | s_t)
 $$
 
-Assuming we can swap the summation and the gradient operator:
+We can swap the summation and the gradient operator:
 $$
 = b(s_t) \nabla_\theta \sum_{a_t} \pi_\theta(a_t | s_t)
 $$
 
-And here's the crucial step: For any state $s_t$, the sum of probabilities of taking all possible actions $a_t$ according to the policy $\pi_\theta(a_t | s_t)$ must be equal to 1 (because the policy is a probability distribution):
+And here's the crucial step. For any state $s_t$, the sum of probabilities of taking all possible actions $a_t$ according to the policy $\pi_\theta(a_t | s_t)$ must be equal to 1 (because the policy is a probability distribution):
 $$
 \sum_{a_t} \pi_\theta(a_t | s_t) = 1
 $$
@@ -433,7 +417,7 @@ $$
 = b(s_t) \nabla_\theta (1)
 $$
 
-The gradient of a constant (1) with respect to $\theta$ is 0:
+The gradient of a constant with respect to $\theta$ is 0:
 
 $$
 = b(s_t) \cdot 0 = 0
@@ -454,90 +438,104 @@ Okay, so the objective function is unaffected by introducing the baseline, but w
 
 Okay, so the baseline $b(s_t)$ helps in reducing the variance of our policy gradient estimates. The most common choice for this baseline is an estimate of the state-value function $V^\pi(s_t)$ for the current policy $\pi$. And now it's time to thank our existing knowledge in Value-based RL, because we indeed have methods to estimate these state-values!
 
-In Actor-Critic methods, the component responsible for learning this baseline $V^\pi(s_t)$ is called the Critic. The Critic is typically a function approximator (like a neural network) with its own set of parameters, let's say $\phi$. So, the Critic learns an estimate $V_\phi(s_t) \approx V^\pi(s_t)$.
+In actor-critic methods, the component responsible for learning this baseline $V^\pi(s_t)$ is called the critic. It is typically a function approximator (like a neural network) with its own set of parameters, let's say $\phi$. So, the critic learns an estimate $V_\phi(s_t) \approx V^\pi(s_t)$.
 
-How does the Critic learn $V_\phi(s_t)$? As you guessed correctly, using Temporal Difference (TD) Learning!
+How does it learn $V_\phi(s_t)$? As you guessed correctly, using Temporal Difference (TD) Learning!
 
-For each step the Actor takes in the environment, resulting in a transition $(s_t, a_t, r_{t+1}, s_{t+1})$, the Critic observes this transition and updates its value estimate $V_\phi(s_t)$, using the TD error:
+The actor takes a step in the environment, resulting in a transition $(s_t, a_t, r_{t+1}, s_{t+1})$. The critic observes this transition and updates its value estimate $V_\phi(s_t)$, using the TD target:
 $$
 y_t = r_{t+1} + \gamma V_\phi(s_{t+1}) \\
 \text{or if next state is terminal} \\
 y_t = r_{t+1}
 $$
 
-- Calculate the TD Error for the Critic: This is the difference between the TD target and the Critic's current prediction for $s_t$:
+Given the target, we can calculate the TD error to update the critic's parameters:
 $$
 \delta_t = y_t - V_\phi(s_t) = (r_{t+1} + \gamma V_\phi(s_{t+1})) - V_\phi(s_t)
 $$
-- Update the Critic's Parameters $\phi$: The Critic is trained to minimize the squared TD error (or a similar loss like Huber loss). The loss function for the Critic is:
+
+Exactly like in Deep Q-Network, we define a loss (L2 loss or smooth L1 loss):
+
 $$
 L(\phi) = \delta_t^2 = ((r_{t+1} + \gamma V_\phi(s_{t+1})) - V_\phi(s_t))^2
 $$
-- The Critic's parameters $\phi$ are updated using gradient descent:
+
+And we use gradient descent to update $\phi$ with a separate learning rate $\alpha_C$:
 $$
 \phi \leftarrow \phi - \alpha_C \nabla_\phi L(\phi)
 $$
 
-(where $\alpha_C$ is the learning rate for the Critic).
 
-This is exactly the TD(0) learning algorithm for estimating state values that we've seen before like in DQN! The only difference is that we estimate only $V(s)$ and not $Q(s,a)$ for all possible actions.
+This is exactly like what we have already seen in previous lesson! The only difference is that now we estimate only one real number, $V(s)$, and not $Q(s,a)$ for all possible actions.
 
-### Connecting the Critic's Baseline to the Actor's Update
+### Advantage Actor-Critic
 
-Now, how does this learned baseline $V_\phi(s_t)$ help the Actor? The Actor's policy gradient update uses the term $(G_t - b(s_t))$. With the Critic providing $b(s_t) \approx V_\phi(s_t)$:
+Okay, now we understand how we can utilize and improve a separate network to estimate the value of a given state. Now, the actor is simply updated using this term: $G_t - b(s_t)$, where the baseline is approximated via the critic $b(s_t) \approx V_\phi(s_t)$.
 
-If the Actor uses Monte Carlo returns $G_t$ (like in REINFORCE with baseline), the update term becomes $(G_t - V_\phi(s_t))$. 
-
-Let's look closely at this term: $G_t$. It indicates what return does action $a_t$ taken in state $s_t$ yield if we follow our policy afterwards. Does it sound familiar to you? It is exactly the definition of Q-value. So, it means that:
+But that means that we are still have to wait until the end of episode to observe $G_t$. But wait a minute... $G_t$ term indicates what return does action $a_t$ taken in state $s_t$ yield if we follow our policy afterwards. Does it sound familiar to you? It is exactly the definition of Q-value. So, it means that:
 
 $$
-G_t - V_\phi(s_t) = Q^\pi(s_t, a_t) - V_\phi(s_t) = A^\pi(s_t, a_t)
+G_t - b(s_t) = G_t - V_\phi(s_t) = Q^\pi(s_t, a_t) - V_\phi(s_t) = A^\pi(s_t, a_t)
 $$
-It is the definition of the advantage function! 
 
-Now, here comes the beautiful part that allows for step-by-step learning. We don't need to wait until the end of the episode to get $G_t$. Look at the TD-error we calculated for the Critic:
+It is the definition of the advantage function, this is the same advantage we defined in Dueling DQN! 
+
+Okay, so with that being said, the actor's policy gradient becomes:
+
+$$
+\nabla_\theta J(\theta) = E_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{T-1} A(s_t, a_t) \nabla_\theta \log \pi_\theta(a_t | s_t) \right]
+$$ 
+
+Great, but still the problem is not solved, to estimate $A(s_t, a_t)$ we have to observe $G_t$, which means that we have to wait until the completion of an episode. We can't learn step by step like we did in DQN.
+
+To be able to learn at each step we have to find a good estimate for advantage. In other words, given a transition step $(s_t, a_t, r_{t+1}, s_{t+1})$ we need somehow to estimate $A(s_t, a_t)$. Let us look closely at the TD-target that we were computing for critic:
 
 $$
 \delta_t = (r_{t+1} + \gamma V_\phi(s_{t+1})) - V_\phi(s_t)
 $$
 
-The term $(r_{t+1} + \gamma V_\phi(s_{t+1}))$ is our single-step estimate of $Q^\pi(s_t, a_t)$. This means the TD-error $\delta_t$ is actually a very good, one-step estimate of the Advantage function!
+The TD-target - $r_{t+1} + \gamma V_\phi(s_{t+1})$ - can serve as a good single-step estimate of $Q^\pi(s_t, a_t)$, don't you think? Because it literally is. And that means that:
+
+$$
+\delta_t = Q^\pi(s_t, a_t) - V_\phi(s_t) = A^\pi(s_t, a_t)
+$$
+
+So, it turned out that the TD-target is actually a very good, one-step estimate of the advantage function, crazy right!
 
 $$
 A^\pi(s_t, a_t) \approx \delta_t
 $$
 
-Okay, I think we made a juge leap. Time to slow down a little. Let's recap once again.
 
-1. We make a step in the environment and we collect $(s_t, a_t, r_{t+1}, s_{t+1})$
-2. We ask our critic, $\phi$, to estimate the state-value of $s_t$: $V_\phi(s_t)$
-3. We compute the TD-target as $r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$
-4. We compute the TD-error $\delta_t$
+Okay, I think we made a juge leap. Time to slow down a little. Let's recap once again what is the overall pipeline:
 
-This single value, $\delta_t$, serves two purposes at once:
+1. Actor, $\pi_\theta$, processes a state, $s_t$, and outputs a probability distribution over all actions
+2. We sample from this distribution to choose an action, $a_t$ and we store the log-probability of that action, $\log \pi_\theta(a_t | s_t)$
+3. We apply this action to the environment and we collect $(s_t, a_t, r_{t+1}, s_{t+1})$
+4. Critic, $\phi$, processes $s_t$ and estimates the state-value: $V_\phi(s_t)$
+5. We compute the TD-target as $r_{t+1} + \gamma V_\phi(s_{t+1})$
+6. We compute the TD-error: $\delta_t = r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$
 
-- For the Critic: We square it ($\delta_t^2$) to calculate the loss for updating the Critic's parameters, $\phi$.
+Now this single value, $\delta_t$, serves two purposes at once:
 
-- For the Actor: We use it directly as our Advantage estimate to scale the policy gradient.
+- For the critic: We square it to calculate the loss to apply a gradient descent on $\phi$: 
 
-The Actor then uses this Advantage estimate to update its policy parameters $\theta$:
+$$
+L_\phi  = \delta_t^2 \\
+\phi \leftarrow \phi - \alpha_C \nabla_\phi L_\phi
+$$
 
+- For the actor: We multiply actor's loss as advantage times the log-probability and then apply a gradient descent on $\theta$ with a separate learning rate $\alpha_A$
+
+$$
+L_\theta = -\delta_t \cdot \log \pi_\theta(a_t \mid s_t) \\
+\theta \leftarrow \theta - \alpha_A \cdot L_\theta
 $$
 
 
-\nabla_\theta J(\theta) = E_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{T-1} A_t \nabla_\theta \log \pi_\theta(a_t | s_t) \right] \tag{4} \\
-\theta \leftarrow \theta + \alpha_A \cdot \delta_t \cdot \nabla_\theta \log \pi_\theta(a_t \mid s_t)
-$$
-
-(where $\alpha_A$ is the Actor's learning rate).
-
-And that is the Advantage Actor-Critic (AAC) algorithm. The Critic learns the state-value function $V(s)$, and the Actor uses the Critic's TD-error as the Advantage estimate to improve its policy at every single step. And more importantly we do not need to wait for the episode to finish before we can do any update to our policy, we can do it every step now!
+And that is the Advantage Actor-Critic (AAC) algorithm. The critic learns the state-value function $V(s)$, and the actor uses the critic's TD-error as the advantage estimate to improve its policy at every single step!
 
 ## A3C
-
-So far we have learned the Policy Gradient (PG) algorithm and its update rule. We have also learned a way how we can reduce the variance of the policy gradient estimate by using a baseline. We have also learned how we can use a separate network that utilizes our value-based approach to improve the policy. Let's review now what can be done to improve the training.
-
-### Parallelizing data collection
 
 Have you every watched Naruto? In a nutshell there is a character that can make copies of himself. Each copy has its own mind and can do things independently. After the copy expires, all learnt knowledge transfers to the original Naruto. And you know what? I think we can use Naruto's approach here as well! 
 
@@ -546,41 +544,31 @@ Okay, so we train in the digital world. What stops us from making a bunch of ind
 1. Speed up training
 2. Diversify the training data
 
-Okay, so far, so good. More data, more diverse data, faster training – sounds like a win-win. But hold your kunais for a second. Remember how we talked about policy gradient methods, like REINFORCE and even our basic AAC, being on-policy? That means they learn from data generated by the current policy we are trying to improve. If our policy $\pi_\theta$ says to "go right" 70% of the time, we take that action, see what happens, and update $\pi_\theta$  based on that experience.
+Okay, so far so good. More data, more diverse data, faster training - sounds like a win-win. But we need to talk about why it might be making our training worse.
 
-Now, with our A3C setup and all these Naruto clones (workers) running around:
+Remember how we talked about PG methods, like REINFORCE and AAC, being on-policy? That means they learn from data generated by the same policy that we are trying to improve. But it can be easily seen how this Naruto's approach can break this condition. Let's review how:
 
-Each worker grabs a copy of the global policy parameters $\theta_{global}$ to its local brain $\theta_{local}$. It then goes off into its own instance of the environment and collects a bunch of experiences $(s_t, a_t, r_{t+1}, s_{t+1})$ using its $\theta_{local}$. After a bit, it calculates gradients $∇θ_{local}$ and sends them up to update $\theta_{global}$.
+- We have a global policy, $\theta_{global}$, that all workers (clones) try to improve
+- In the beginning each worker grabs a copy of the global policy parameters $\theta_{global}$ to its local brain $\theta_{local}$
+- It then goes off into its own instance of the environment and collects a bunch of experiences $(s_t, a_t, r_{t+1}, s_{t+1})$ using its $\theta_{local}$. 
+- After a bit, it calculates gradients $\nabla \theta_{local}$ and sends them up to update $\theta_{global}$.
 
-**Here’s the potential hiccup:**
+**But here’s the potential hiccup**: by the time a worker tries to update the $\theta_{global}$, it can be updated already by other workers, so it is not the same anymore. So, the global policy is already different from the $\theta_{global}$ the worker originally copied to its $\theta_{local}$! The policy it used to gather data, $\theta_{local}$, isn't exactly the same as the policy it tries to improve.
 
-Worker #1 (Naruto Clone Prime) starts its adventure with $\theta_{local}$ copied from $\theta_{global}$ at time $T$. It spends some time collecting data. But in the meantime, Worker #2, #3, all the way to Worker #N (the rest of the Kage Bunshin army) are also collecting data and sending their own gradient updates back to $\theta_{global}$.
+### Why A3C works
 
-So, by the time Worker #1 is ready to send its gradients, $\theta_{global}$ update, the global policy might already be different from the $\theta_{global}$ it originally copied to its $\theta_{local}$! The policy it used to gather data ($\theta_{local}$) isn't exactly the same as the most current global policy.
+Despite that potential hiccup we discussed before, A3C used that Naruto's approach and showed impressive results. Why?
 
-**Is A3C On-Policy or Off-Policy Then? And Why Does It Still Work?**
+1. In A3C workers typically sync their $\theta_{local}$ with $\theta_{global}$ pretty frequently (e.g., after collecting a small batch of, say, 5 or 20 steps). So, the $\theta_{local}$ isn't ancient history; it's just a little bit behind the curve. The difference between the policy used for data collection and the global policy being updated is often small.
 
-This is a classic "well, it's complicated... but not really" situation.
-Technically, because of that delay and the continuous updates to the global network from other workers, the data each worker uses to compute its gradients is generated by a policy $\theta_{local}$ that can be slightly "stale" compared to the absolute latest $\theta_{global}$. So, A3C is not a strictly on-policy algorithm. Does it mean that we cannot use it? Of course not.
+2. The massive benefit you get from all those workers collecting diverse, decorrelated experiences outweighs the off-policy scent. Remember our correlation problem with a single agent? A3C naturally solves this problem by having several agents gathering data. This rich, varied data helps stabilize the learning process significantly. 
 
-A3C showed impressive results and that is probably why:
-
-- The "Staleness" Isn't Usually That Bad 
-
-Workers typically sync their $\theta_{local}$ with $\theta_{global}$ pretty frequently (e.g., after collecting a small batch of, say, 5 or 20 steps). So, the $\theta_{local}$ isn't ancient history; it's just a little bit behind the curve. The difference between the policy used for data collection and the global policy being updated is often small.
-
-- Diversity Overrides Minor Off-Policy Effects 
-
-This is the big one. The massive benefit you get from all those workers collecting diverse, decorrelated experiences outweighs the off-policy scent. Remember our correlation problem with a single agent? A3C naturally solves this problem by having several agents gathering data. This rich, varied data helps stabilize the learning process significantly. 
-
-- Gradients are Still Pointing "Generally" Right 
-
-Even if $\theta_{local}$ is a really old, the gradients computed from its experience are still likely to push $\theta_{global}$ in a beneficial direction. The environment dynamics don't usually change so drastically that what was good for a policy five steps ago is terrible for the current one.
+3. Even if $\theta_{local}$ is a really old, the gradients computed from its experience are still likely to push $\theta_{global}$ in a beneficial direction. The environment dynamics don't usually change so drastically that what was good for a policy five steps ago is terrible for the current one.
 
 
-So, to sum it up: A3C isn't strictly, 100% pure on-policy in the way that a single-threaded REINFORCE agent (that updates only after a full episode with no other policy changes) would be. There's a touch of off-policy flavor because of the asynchronous updates from multiple workers. But it works because the policies don't diverge too dramatically between syncs, and the immense benefits of parallel, decorrelated data collection provide a much more stable and efficient learning signal overall. The global policy is learning from the collective, slightly time-delayed wisdom of its many clones. 
+A3C isn't strictly, 100% pure on-policy in the way that a single-threaded REINFORCE agent (that updates only after a full episode with no other policy changes) would be. There's a touch of off-policy flavor because of the asynchronous updates from multiple workers. But it works because the policies don't diverge too dramatically between syncs, and the immense benefits of parallel, decorrelated data collection provide a much more stable and efficient learning signal overall. The global policy is learning from the collective, slightly time-delayed wisdom of its many clones. 
 
-But let's think for a moment, why do we really care that the algorithm is on-policy or off-policy?
+If you are confused about why do we really care that the algorithm is on-policy or off-policy, let's discuss it.
 
 ---
 
@@ -598,11 +586,11 @@ An algorithm is considered off-policy if the target and behavior policies are no
 
 - The first and main reason is that the standard Policy Gradient theorem does not work directly with off-policy data. 
 
-    Think about it: the gradient for an on-policy method like Actor-Critic is $Advantage \times \nabla \log \pi(a|s)$. This formula explicitly says, "Given the action $a$ that was just sampled from our current policy $\pi$, what is the gradient of its log-probability?" If you feed this formula an action from a replay buffer that was taken by an old policy, the entire premise is violated. The gradient is no longer a valid direction for improvement and becomes meaningless noise.
+    Think about it: the gradient for an on-policy method like Actor-Critic is $A(s,a) \times \nabla \log \pi(a|s)$. This formula explicitly says, "Given the action $a$ that was just sampled from our current policy $\pi$, what is the gradient of its log-probability?" If you feed this formula an action from a replay buffer that was taken by an old policy, the entire premise is violated. The gradient is no longer a valid direction for improvement and becomes meaningless noise.
 
     **So how does learning work for off-policy methods?**
 
-    Their learning is rooted in the principles of value-based learning. The update for an off-policy method like DQN or SAC is based on the Bellman equation: $Target = r + \gamma \cdot Q(s', a')$. This formula learns the value of a state-action pair. It doesn't care which policy generated the $(s, a, r, s')$ tuple. It can learn the correct value for any transition, whether it came from an old policy, a random policy, or an expert policy. This is what makes it compatible with a replay buffer.
+    Their learning is rooted in the principles of value-based learning. The update for an off-policy method like DQN or SAC is based on the Bellman equation: $Target = r + \gamma \cdot \max_a Q(s', a)$. This formula learns the value of a state-action pair. It doesn't care which policy generated the $(s, a, r, s')$ tuple. It can learn the correct value for any transition, whether it came from an old policy, a random policy, or an expert policy. This is what makes it compatible with a replay buffer.
 
 - The second reason is that on-policy algorithms have the unique property of higher stability. 
 
@@ -614,90 +602,13 @@ This sounds like on-policy methods are the obvious choice, but then why would an
 
 **Off-Policy is Efficient:** An off-policy algorithm's replay buffer is its superpower. It can learn from a single experience hundreds or even thousands of times. By sampling from this large and diverse bank of past experiences, it can squeeze much more learning out of every interaction. This makes it far more suitable for robotics and other real-world tasks where collecting data is costly.
 
-This leads to the fundamental choice when designing an algorithm:
-
-- Do you want stability and simplicity? Choose On-Policy.
-
-- Do you want sample efficiency? Choose Off-Policy.
-
 ---
 
 Okay, with that being said, we see that A3C is not quite on-policy, but what if I told you that it can be made on-policy and at the same time much simpler?
 
-Before we discuss the details, let's recall the N-step return! 
-
-### Use N-step return 
-
-So, the formula we have seen and implemented in the AAC is:
-$$
-\theta \leftarrow \theta + \alpha_A \cdot A(s_t, a_t) \cdot \nabla_\theta \log \pi_\theta(a_t | s_t)
-$$
-
-where $A(s_t, a_t)$ is estimated by the critic via TD-learning:
-
-$$
-\delta_t =  r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t) \\
-\theta_{\phi} \leftarrow \theta_{\phi} + \alpha_C \cdot \delta_t
-$$
-
-Basically we apply one-step learning. And it was shown emperically that N-step learning is better, so our goal is to extend the AAC to N-step learning.
-
-Greats news that we already know how to do it:
-
-- First, let our actor interact with the environment for N steps, collecting a sequence of states, actions, and rewards. Let's say we start at time t:
-
-$$(s_t, a_t, r_{t+1}, s_{t+1}, a_{t+1}, r_{t+2}, \ldots, s_{t+N-1}, a_{t+N-1}, r_{t+N}, s_{t+N})$$
-
-- Then, we calculate the N-step return:
-
-The N-step return, let's call it $G_{t:t+N}$, from state $s_t$ is the sum of discounted rewards for these N steps, plus the discounted value of the state $s_{t+N}$ estimated by our critic:
-
-$$
-G_{t:t+N} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3} + \cdots + \gamma^{N-1} r_{t+N} + \gamma^N V_\phi(s_{t+N})
-$$
-
-**Important Note:** If your episode ends before N steps are completed (say it ends at step $k < N$, after reward $r_{t+k}$ and landing in a terminal state $s_{t+k}$), then the return calculation stops there, and $V_\phi(s_{\text{terminal}}) = 0$. For example, if $N=5$ but the episode ends at step 3 (relative to $t$):
-
-$$
-G_{t:t+3} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3}
-$$
-
-(since $V_\phi(s_{\text{terminal}}) = 0$)
-
-All right, choosing the optimal N is another fine-tuning task that is going to be different from problem to problem. But if you remember that we had eligibility traces algorithm that was combining different N-step returns? We have something similar in PG algorithms called Generalized Advantage Estimation (GAE).
-
-$$
-A_t^{GAE} = \sum_{k=0}^\infin (\gamma\lambda)^k \delta_{t+k}
-$$
-
-NOTE: $\delta_{t+k}$ represents here a single one-step return at step $k$ or in other words: 
-$$
-\delta_{t+k} = (r_{t+k+1} + \gamma V(s_{t+k+1})) - V(s_{t+k})
-$$
-
-So, GAE is nothing else but a exponentially-weighted average of single-step returns at different steps.
-
-- $\lambda = 0$: $A_t^{GAE} = \sum_{k=0}^\infin (\gamma \cdot 0)^k \delta_{t+k} = \delta_{t} $. 
-
-    So if lambda is zero, then GAE is simply a single step return at current step
-- $\lambda = 1$: $A_t^{GAE} = \sum_{k=0}^\infin \gamma^k \delta_{t+k}$ which is an infinite sum, but V terms are cancelling out resulting in $ \sum_{k=0}^\infin \gamma^k r_{t+k+1} - V(s_t) = G_t - V(s_t)$. 
-
-    So if lambda is 1, then GAE is a monte-carlo return.
-
-By choosing a value for λ between 0 and 1 (a common value is 0.95), we get a sophisticated blend of all possible k-step estimators. It gives more weight to the immediate TD-error but still incorporates information from many steps into the future, without being as noisy as a full Monte Carlo return.
-
-### Practical Implementation
-
-In code, we don't compute an infinite sum. We calculate GAE backward over the finite rollout of M steps we collected. Starting from the last step and moving backward to the first, we use the following recursive formula:
-$$
-A_t^{GAE} = \delta_t + \gamma \lambda A_{t+1}^{GAE}
-​$$
- 
-This makes it very efficient to compute the GAE for every step in our collected trajectory. This GAE value is then used as the advantage estimate in the actor's loss function, leading to much more stable and effective policy updates.
-
 ### A2C and A3C
 
-Okay, so how A3C can be made strictly on-policy and simpelr at the same time? Easy, we just replace asynchronous update with synchronous. 
+Okay, so how A3C can be made strictly on-policy and simpler at the same time? Easy, we just replace asynchronous update with synchronous. 
 
 Parallel learning was initially introduced with an asynchronous model, Asynchronous Advantage Actor-Critic (A3C). The idea was to have N "worker" agents, each with its own copy of the model and interacting with its own copy of the environment. Then, each worker would independently compute gradients and send them back to update one global, master model.
 
@@ -791,6 +702,77 @@ Once the update is complete, the new, improved strategy is ready, and the entire
 
 Now because we have just onle policy and all the parallel environments step in the synchronous manner, the data gather is on-policy and we do not need to care about PG theorem not working! And more importantly we just made the learning pipeline much simpler to implement.
 
+
+## N-step return 
+
+Okay, A2C works great, but we can improve it by adopting N-step return instead of using only one step estimate.
+
+So, the formula we have seen and implemented in the A2C is:
+$$
+\theta \leftarrow \theta + \alpha_A \cdot A(s_t, a_t) \cdot \nabla_\theta \log \pi_\theta(a_t | s_t)
+$$
+
+where $A(s_t, a_t)$ is estimated by the critic via TD-learning or more specifically TD(0) learning:
+
+$$
+\delta_t =  r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t) \\
+\theta_{\phi} \leftarrow \theta_{\phi} + \alpha_C \cdot \delta_t^2
+$$
+
+Our goal is to extend the AAC to N-step learning. Greats news that we already know how to do it:
+
+- First, let our actor interact with the environment for N steps, collecting a sequence of states, actions, and rewards. Let's say we start at time t:
+
+$$(s_t, a_t, r_{t+1}, s_{t+1}, a_{t+1}, r_{t+2}, \ldots, s_{t+N-1}, a_{t+N-1}, r_{t+N}, s_{t+N})$$
+
+- Then, we calculate the N-step return:
+
+The N-step return, let's call it $G_{t:t+N}$, from state $s_t$ is the sum of discounted rewards for these N steps, plus the discounted value of the state $s_{t+N}$ estimated by our critic:
+
+$$
+G_{t:t+N} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3} + \cdots + \gamma^{N-1} r_{t+N} + \gamma^N V_\phi(s_{t+N})
+$$
+
+**Important Note:** If your episode ends before N steps are completed (say it ends at step $k < N$, after reward $r_{t+k}$ and landing in a terminal state $s_{t+k}$), then the return calculation stops there, and $V_\phi(s_{\text{terminal}}) = 0$. For example, if $N=5$ but the episode ends at step 3 (relative to $t$):
+
+$$
+G_{t:t+3} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3}
+$$
+
+since $V_\phi(s_{\text{terminal}}) = 0$.
+
+All right, choosing the optimal $N$ is another fine-tuning task that is going to be different from problem to problem. But if you remember that we had eligibility traces algorithm that was combining different N-step returns? We have something similar in PG algorithms called Generalized Advantage Estimation (GAE).
+
+$$
+A_t^{GAE} = \sum_{k=0}^\infin (\gamma\lambda)^k \delta_{t+k}
+$$
+
+**Important note**: $\delta_{t+k}$ represents here a single one-step TD-error at step $k$ or in other words: 
+$$
+\delta_{t+k} = (r_{t+k+1} + \gamma V(s_{t+k+1})) - V(s_{t+k})
+$$
+
+So, GAE is nothing else but a exponentially-weighted average of single-step returns at different steps.
+
+- $\lambda = 0$: $A_t^{GAE} = \sum_{k=0}^\infin (\gamma \cdot 0)^k \delta_{t+k} = \delta_{t} $. 
+
+    So if lambda is zero, then GAE is simply a single step return at current step
+- $\lambda = 1$: $A_t^{GAE} = \sum_{k=0}^\infin \gamma^k \delta_{t+k}$ which is an infinite sum, but $V(s_t)$ terms are cancelling out resulting in $ \sum_{k=0}^\infin \gamma^k r_{t+k+1} - V(s_t) = G_t - V(s_t)$. 
+
+    So if lambda is 1, then GAE is a monte-carlo return.
+
+By choosing a value for λ between 0 and 1 (a common value is 0.95), we get a sophisticated blend of all possible k-step estimators. It gives more weight to the immediate TD-error but still incorporates information from many steps into the future, without being as noisy as a full Monte Carlo return.
+
+### Practical Implementation
+
+In code, we don't compute an infinite sum. We calculate GAE backward over the finite rollout of M steps we collected. Starting from the last step and moving backward to the first, we use the following recursive formula:
+$$
+A_t^{GAE} = \delta_t + \gamma \lambda A_{t+1}^{GAE}
+​$$
+ 
+This makes it very efficient to compute the GAE for every step in our collected trajectory. This GAE value is then used as the advantage estimate in the actor's loss function, leading to much more stable and effective policy updates.
+
+
 ## Policy Update Stability
 
 All right, we have seen that using parallel environments we can improve the efficiency of training. But still, the main idea behind learning remains: if an action led to a good outcome, make it more likely; if it led to a bad outcome, make it less likely.
@@ -799,14 +781,11 @@ $$
 \theta \leftarrow \theta + \alpha \cdot (\text{Some\_Goodness\_Score}) \cdot \nabla_\theta \log \pi_\theta(a_t | s_t)
 $$
 
-This is great, but may be you have noticed this behavior: You train a policy for some time and it seems to converge, the total reward is stably high; but suddenly the policy started to deteriorate, the overal reward is lower than it was. This is happening because each update can lead our policy to some weird directions and policy can do a big step from the its stable version. 
+This is great, but may be you have noticed this behavior: You train a policy for some time and it seems to converge, the total reward is stably high; but suddenly the policy started to deteriorate, the overall reward is lower than it was. This is happening because each update can lead our policy to some weird directions and policy can do a big step from the its stable version. 
 
-**Why is this a problem?**
+A large, possibly noisy update could accidentally overwrite good parts of the learned policy. The agent might "forget" previously learned skills because of one aggressive update based on a potentially unrepresentative batch of data. In LLM fine-tuning people have same problem, and it is called "Catastrophic Forgetting"
 
-- **Breaking Good Habits:** A large, possibly noisy update could accidentally overwrite good parts of the learned policy. The agent might "forget" previously learned skills because of one aggressive update based on a potentially unrepresentative batch of data. In LLM fine-tuning people have same problem, and it is called "Catastrophic forgetting"
-- **The "Off-Policy" Problem Sneaks In:** Policy gradient methods are generally on-policy, meaning the data used to compute the update should come from the policy we are trying to improve. If $\pi_{\theta_\text{new}}$ is wildly different from $\pi_{\theta_\text{old}}$, the advantage estimates and gradients calculated using data from $\pi_{\theta_\text{old}}$ might no longer be accurate or relevant for $\pi_{\theta_\text{new}}$. 
-
-This issue is often referred to as the problem of destructive policy updates or instability due to large policy ratios. The "policy ratio"  
+This issue is often referred to as the problem of destructive policy updates or instability due to large policy ratios. The "policy ratio":
 $$
 \frac{\pi_{\theta_\text{new}}(a|s)}{\pi_{\theta_\text{old}}(a|s)}
 $$

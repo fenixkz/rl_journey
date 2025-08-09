@@ -71,8 +71,8 @@ class AgentDQN(DQNBase):
         self.optimizer.step()
         return loss.item()
     
-    def train(self, all_rewards: List, std_rewards: List, max_steps: int = 100000, timeout: float = None):
-        rewards_log = deque(maxlen=25)
+    def train(self, all_rewards: List, max_steps: int = 100000, timeout: float = None):
+        rewards_log = deque(maxlen=100)
         
         obs, _ = self.env.reset()
         if self.is_atari: obs = self.auto_fire()

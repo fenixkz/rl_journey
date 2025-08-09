@@ -288,8 +288,8 @@ class AgentDQN(DQNBase):
         
         return loss.item()
 
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
-        rewards_log = deque(maxlen=mean_n_episodes)
+    def train(self, all_rewards: List, max_steps: int = 100000, timeout: float = None):
+        rewards_log = deque(maxlen=100) # For calculating a mean reward over 100 episodes
         
         obs, _ = self.env.reset()
         if self.is_atari: obs = self.auto_fire()
@@ -300,21 +300,23 @@ class AgentDQN(DQNBase):
         learning_steps = 0
         start_time = time.time()
 
-        # Initial noise reset
-        if self.use_noisy_net: self.reset_noise()
-
         for global_step in pbar:
             if global_step < self.learning_starts:
                 action = np.random.choice(self.action_space.n)
             else:
                 action = self.choose_action(obs)
-            if not self.use_noisy_net: self.decay_epsilon()
+            # No epsilon decay here, because e-greedy is not used
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
             clipped_reward = self.clip_reward(reward) if self.is_atari else reward
-            
-            # Add experience to n-step buffer
+            # We are no more adding each experience tuple to the memory, instead we are adding to the memory:
+            # - s_t -- Start state
+            # - a_t -- Action that was taken
+            # - R_{t+n+1} -- Accumulated reward for N steps
+            # - done_{t+n+1} -- Whether or not the s_{t+n+1} was terminal or not
+            # - n -- number of actual steps that were taken (because the agent can end the episode in steps less than N)
+            # So, add a single experience tuple into a separate buffer for futher post-processing
             self.n_step_buffer.append((obs, action, clipped_reward, next_obs, terminated))
             
             # If the buffer has enough steps process data and store it into memory
@@ -339,26 +341,23 @@ class AgentDQN(DQNBase):
                     start_state, start_action, _, _, _ = self.n_step_buffer.popleft()
                     self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n)
                 
-                if "episode" in info: rewards_log.append(info['episode']['r'])
+                if "episode" in info: 
+                    rewards_log.append(info['episode']['r'])
+                    all_rewards.append(info['episode']['r'])
                 episode += 1
                 mean_reward = np.mean(rewards_log)
-                if len(rewards_log) == mean_n_episodes:
-                    mean_rewards.append(mean_reward)
-                    std_rewards.append(np.std(rewards_log))
-                
                 if mean_reward > self.solved_reward:
                     print(f"Solved! Mean reward: {mean_reward}")
                     break
                 
                 obs, _ = self.env.reset()
-                if self.is_atari: obs = self.auto_fire()
+                if self.is_atari: obs = self.auto_fire()             
             else:
                 obs = next_obs
-            # Log out the metrics (no epsilon for Noisy Networks)
-            postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A"}
-            if not self.use_noisy_net: postfix['epsilon'] = f"{self.epsilon:.3f}"
+            # Log out the metrics
+            postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A", "eps": f"{self.epsilon:.3f}"}
             pbar.set_postfix(postfix)
-
+            
             if timeout is not None and time.time() - start_time > timeout*60:
                 print("[bold red] Timeout has expired, finishing the training...") 
                 break

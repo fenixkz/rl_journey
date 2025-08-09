@@ -28,7 +28,7 @@ class AgentDQN(DQNBase):
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari)
 
-        self.name = "DDQN-PER"
+        self.name = "PER"
         self.solved_reward = env_config['solved_reward']
         # ---------- PER PARAMS ------------
         self.beta_start = agent_config.beta_start
@@ -115,10 +115,10 @@ class AgentDQN(DQNBase):
         # Increment step counter for beta annealing
         self.step_count += 1
 
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
-        rewards_log = deque(maxlen=mean_n_episodes)
+    def train(self, all_rewards: List, max_steps: int = 100000, timeout: float = None):
+        rewards_log = deque(maxlen=100)
         
-        obs, _ = self.env.reset(seed=self.seed)
+        obs, _ = self.env.reset()
         if self.is_atari: obs = self.auto_fire()
 
         pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})
@@ -133,7 +133,9 @@ class AgentDQN(DQNBase):
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
+            # Clip rewards for Atari envs, per Nature paper
             clipped_reward = self.clip_reward(reward) if self.is_atari else reward
+            # Push experience into memory
             self.memory.push(obs, action, clipped_reward, next_obs, terminated)
             
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
@@ -143,13 +145,12 @@ class AgentDQN(DQNBase):
                     self.update_target_network()   
 
             if done:
-                if "episode" in info: rewards_log.append(info['episode']['r'])
+                if "episode" in info: 
+                    rewards_log.append(info['episode']['r'])
+                    all_rewards.append(info['episode']['r'])
                 episode += 1
                 mean_reward = np.mean(rewards_log)
-                if len(rewards_log) == mean_n_episodes:
-                    mean_rewards.append(mean_reward)
-                    std_rewards.append(np.std(rewards_log))
-
+                
                 if mean_reward > self.solved_reward:
                     print(f"Solved! Mean reward: {mean_reward}")
                     break
@@ -161,9 +162,8 @@ class AgentDQN(DQNBase):
             # Log out the metrics
             postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A", "eps": f"{self.epsilon:.3f}"}
             pbar.set_postfix(postfix)
-
+            
             if timeout is not None and time.time() - start_time > timeout*60:
                 print("[bold red] Timeout has expired, finishing the training...") 
                 break
-            
         pbar.close()

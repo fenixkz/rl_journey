@@ -28,7 +28,7 @@ class AgentDQN(DQNBase):
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari)
 
-        self.name = "N-Step-Dueling-Double-DQN-PER"
+        self.name = "N-Step-DQN"
         self.solved_reward = env_config['solved_reward']
         # ---------- PER PARAMS ------------
         self.beta_start = agent_config.beta_start
@@ -116,8 +116,8 @@ class AgentDQN(DQNBase):
         # Increment step counter for beta annealing
         self.step_count += 1
 
-    def train(self, mean_rewards: List, std_rewards: List, max_steps: int = 100000, mean_n_episodes: int = 50, timeout: float = None):
-        rewards_log = deque(maxlen=mean_n_episodes)
+    def train(self, all_rewards: List, max_steps: int = 100000, timeout: float = None):
+        rewards_log = deque(maxlen=100)
         
         obs, _ = self.env.reset()
         if self.is_atari: obs = self.auto_fire()
@@ -166,13 +166,11 @@ class AgentDQN(DQNBase):
                     start_state, start_action, _, _, _ = self.n_step_buffer.popleft()
                     self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n)
                 
-                if "episode" in info: rewards_log.append(info['episode']['r'])
+                if "episode" in info: 
+                    rewards_log.append(info['episode']['r'])
+                    all_rewards.append(info['episode']['r'])
                 episode += 1
                 mean_reward = np.mean(rewards_log)
-                if len(rewards_log) == mean_n_episodes:
-                    mean_rewards.append(mean_reward)
-                    std_rewards.append(np.std(rewards_log))
-                
                 if mean_reward > self.solved_reward:
                     print(f"Solved! Mean reward: {mean_reward}")
                     break

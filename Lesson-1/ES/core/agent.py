@@ -516,7 +516,6 @@ class ESAgent(nn.Module):
         # Extract and store the calculated statistics for efficient passing to workers
         self.vbn_stats = self.policy.get_vbn_stats()
         
-
     def choose_action(self, state: np.ndarray) -> int:
         """Chooses an action based on the policy's output logits."""
         state_t = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
