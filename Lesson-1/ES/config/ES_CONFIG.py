@@ -8,7 +8,7 @@ ES_CONFIG = {
 
 ES_ATARI_CONFIG = {
     "training_generations": 5000,
-    "population_size": 50,
+    "population_size": 100,
     "noise_std": 0.02,
     "learning_rate": 0.001,
 }

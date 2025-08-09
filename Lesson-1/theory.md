@@ -254,9 +254,9 @@ But do not worry, we will explore other - more mathematically proven - algorithm
 
 # A Different Approach: Evolution Strategies (ES)
 
-The Cross-Entropy Method (CEM) showed us a powerful way to improve our policy by learning from the "elite" episodes. But what if, instead of just copying the actions from our best runs, we could learn from the underlying traits that made those runs successful?
+The Cross-Entropy Method (CEM) showed us a powerful way to improve our policy by learning from the "elite" episodes. But what if, instead of just copying the actions from our best runs, we could learn from the underlying traits that made those runs successful? What if I also told you that we can use a neural network as our agent and improve it without any backpropogation?
 
-That’s where **Evolution Strategies (ES)** comes in — an algorithm inspired by how evolution works in nature. It’s a simple, intuitive approach that got a lot of attention after OpenAI [showed](https://openai.com/index/evolution-strategies/) how well it could scale.
+That’s where **Evolution Strategies (ES)** comes in - an algorithm inspired by how evolution works in nature. It’s a simple, intuitive approach that got a lot of attention after OpenAI [showed](https://openai.com/index/evolution-strategies/) how well it could scale.
 
 
 ## The Core Idea: Learning Through Evolution
@@ -271,7 +271,6 @@ How does evolution work in nature?
 - The traits from the most successful individuals are the ones that get passed on, gradually shaping the DNA of the next generation.
 
 **Evolution Strategies** basically mimics this process.
-
 
 ## The ES Algorithm Step by Step
 
@@ -291,7 +290,7 @@ where $\epsilon_i$ is a small random noise vector—our "mutation."
 
 ### 3. Evaluate the Population's "Fitness"
 
-We let each of the 100 mutant policies play one full episode in the environment. This is like letting the offspring live their lives. We then record the total reward $R_i$ each one gets. This reward is a direct measure of how well they did—their "fitness."
+We let each of the 100 mutant policies play one full episode in the environment. This is like letting the offspring live their lives. We then record the total reward $R_i$ each one gets. This reward is a direct measure of how well they did - their "fitness."
 
 ### 4. Natural Selection and Generational Update
 
@@ -321,9 +320,9 @@ Now, we take our new, slightly evolved parent policy $\theta_{\text{new}}$ and r
 
 ---
 
-**Quick side note.**
+**Quick side note**
 
-A was wondering why ES algorithm was called as an alternative or a rival to RL in OpenAI blog. For me it sounded like ES can be easily classified as an RL algorithm. Because ES also involves an agent trying things in an environment with sole purpose of maximizing the total score, which sounds a lot like the definition of reinforcement learning we just discussed. 
+A was wondering why ES algorithm was called as an alternative or a rival to RL in OpenAI blog. For me it sounded like ES can be easily classified as an RL algorithm. Because it also involves an agent trying things in an environment with sole purpose of maximizing the total score, which sounds a lot like the definition of reinforcement learning we just discussed. 
 
 I am not 100% sure, but I think that true RL algorithm should care about the correlation between states, actions and future states and future possible rewards. On the contrast, ES and CEM are not doing that. These algorithms just play many episodes and make conclusions based on the final score of each episode. There is no explicit derivation of what was the best action to perform in a given state to maximize the possible future reward of the trajectory. Instead they just observe and change the policies behavior based on the final observation.
 
@@ -366,21 +365,6 @@ This approach focuses on behavioral diversity rather than just optimizing reward
 **Why it's useful:** This prevents getting stuck in local optima and can discover unexpected solutions. For example, in a maze, traditional RL might find one path to the exit and stick with it. Novelty search would encourage finding multiple different paths, potentially discovering better routes. 
 
 **Important Note:** Modern novelty search often combines novelty with objective-based fitness rather than completely ignoring rewards.
-
-## Additional Algorithms Worth Mentioning:
-
-### Covariance Matrix Adaptation Evolution Strategy (CMA-ES)
-
-A more sophisticated version of ES that adapts the covariance matrix of the search distribution, making it highly effective for continuous optimization problems.
-
-### Neuroevolution of Augmenting Topologies (NEAT)
-
-Unlike the algorithms above that only evolve weights, NEAT evolves both the weights and the network architecture itself, starting with simple networks and gradually complexifying them.
-
-### MAP-Elites (Multi-dimensional Archive of Phenotypic Elites)
-
-Combines novelty search with quality - it maintains an archive of high-performing solutions across different behavioral niches, giving you both diversity and quality.
-
 
 # Conclusion
 

@@ -12,7 +12,7 @@ from typing import List
 import multiprocessing as mp
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-from utils.prepare_atari_env import get_atari_env
+from utils.atari_utils import get_atari_env
 
 def set_seed(seed):
     """Set random seeds for reproducibility"""
@@ -244,7 +244,6 @@ class EnhancedCEMAgent(nn.Module):
         
         # Calculate elite count with minimum guarantee
         n_elite = int(len(episodes_data) * (100 - percentile) / 100)
-        n_elite = max(2, n_elite)  # Always keep at least 2 episodes
         
         # Get elite episodes
         elite_episodes = episodes_data[:n_elite]
@@ -527,11 +526,11 @@ class EnhancedCEMAgent(nn.Module):
             
             # Train if we have elite data
             if len(elite_obs) > 0:
-                loss = self.learn(elite_obs, elite_actions)
+                self.learn(elite_obs, elite_actions)
                 pbar.set_postfix_str(f"mean: {mean_reward:.2f}, "
                                     f"range: [{min_reward:.1f}, {max_reward:.1f}], "
-                                    f"pct: {current_percentile}%, "
-                                    f"loss: {loss:.4f}")
+                                    f"pct: {current_percentile}%"
+                                    )
             else:
                 pbar.set_postfix_str(f"mean: {mean_reward:.2f}, NO ELITE DATA")
             

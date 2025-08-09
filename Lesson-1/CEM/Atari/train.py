@@ -17,7 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 from utils.plot_utils import get_figure
 from utils.classic_config import CLASSIC_ENV_CONFIG
 from utils.atari_config import ATARI_CONFIGS
-from utils.prepare_atari_env import get_atari_env
+from utils.atari_utils import get_atari_env
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a CEM agent.")

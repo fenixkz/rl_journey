@@ -10,7 +10,7 @@ import random
 from typing import List
 import multiprocessing as mp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-from utils.prepare_atari_env import get_atari_env
+from utils.atari_utils import get_atari_env
 from collections import deque
 
 def set_seed(seed):
@@ -324,14 +324,14 @@ class ESAgent(nn.Module):
             if is_stuck:
                 # If stuck, increase noise to explore more widely
                 current_noise_std *= 1.1
-                pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Stuck! ↑ noise)")
+                pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Stuck! ↑ noise: {current_noise_std:.3f})")
             else:
                 # If improving, decrease noise slightly for finer tuning
                 current_noise_std *= 0.99
-                pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Improving ↓ noise)")
+                pbar.set_postfix_str(f"mean_reward: {mean_reward:.2f} (Improving ↓ noise: {current_noise_std:.3f})")
 
             # Add bounds to prevent noise from exploding or vanishing
-            current_noise_std = max(noise_std, min(0.3, current_noise_std))
+            current_noise_std = max(noise_std, min(0.5, current_noise_std))
 
             # Step 4: Natural Selection and Generational Update
             # This is the core update rule: θ_new = θ_old + learning_rate * Σ(R_i * ε_i)
