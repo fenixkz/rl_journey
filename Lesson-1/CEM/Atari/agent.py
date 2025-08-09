@@ -290,12 +290,9 @@ class EnhancedCEMAgent(nn.Module):
             # Low variance or stuck - be more inclusive
             adaptive_percentile = max(self.min_percentile,
                                      self.base_percentile - 30)
-            print(f"Low variance/stuck, using adaptive percentile: {adaptive_percentile}% "
-                  f"(std={reward_std:.2f}, range={reward_range:.2f})")
         elif reward_std > 2.0 and reward_range > 5.0:
             # High variance - can be more selective
             adaptive_percentile = min(90, self.base_percentile + 10)
-            print(f"High variance, using adaptive percentile: {adaptive_percentile}%")
         else:
             # Normal variance - use base percentile
             adaptive_percentile = self.base_percentile
@@ -331,10 +328,6 @@ class EnhancedCEMAgent(nn.Module):
         """
         Parallel version of warm-start exploration using multiprocessing.
         """
-        print(f"\n{'='*60}")
-        print(f"Running parallel warm-start exploration for {self.warm_start_episodes} episodes...")
-        print(f"Using epsilon={self.warm_start_epsilon} for exploration")
-        print(f"{'='*60}")
         
         # Get current policy state for sharing with workers
         policy_state_dict = self.state_dict()
@@ -356,14 +349,7 @@ class EnhancedCEMAgent(nn.Module):
         # Run episodes in parallel
         with mp.Pool(processes=int(os.cpu_count() * self.cpu_usage)) as pool:
             warm_data = pool.map(evaluate_episode, tasks)
-        
-        # Extract and print statistics
-        warm_rewards = [episode[2] for episode in warm_data]
-        print(f"\nWarm-start complete!")
-        print(f"  Reward range: [{min(warm_rewards):.1f}, {max(warm_rewards):.1f}]")
-        print(f"  Mean reward: {np.mean(warm_rewards):.2f}")
-        print(f"  Std reward: {np.std(warm_rewards):.2f}")
-        
+
         return warm_data
 
     def learn(self, observations, actions):
@@ -441,20 +427,14 @@ class EnhancedCEMAgent(nn.Module):
             )
             
             if len(warm_elite_obs) > 0:
-                print("\nTraining on warm-start elite episodes...")
-                self.learn(warm_elite_obs, warm_elite_actions)
-                
+                self.learn(warm_elite_obs, warm_elite_actions)                
                 # Add warm-start rewards to tracking
                 warm_rewards = [ep[2] for ep in warm_data]
                 all_rewards.extend(warm_rewards)
             else:
                 print("Warning: No elite data from warm-start phase")
         
-        # Continue with standard training loop
-        print(f"\n{'='*60}")
-        print(f"Starting main training loop")
-        print(f"{'='*60}\n")
-        
+
         should_add_noise = False
 
         pbar = tqdm(range(num_epochs), desc="Training", postfix={"mean_reward": 0})
@@ -514,7 +494,7 @@ class EnhancedCEMAgent(nn.Module):
 
             reward_variance = np.var(episodic_rewards)
             if self.use_noise_injection and reward_variance < 0.1: # Threshold for "stagnation"
-                print(f"Low reward variance ({reward_variance:.2f}), enabling action noise for next generation.")
+                pbar.set_postfix_str(f"Var: {reward_variance:.2f}")
                 should_add_noise = True
             else:
                 should_add_noise = False # Disable noise if performance is varied
