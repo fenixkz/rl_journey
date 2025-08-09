@@ -480,7 +480,6 @@ class ESAgent(nn.Module):
     
     def _initialize_vbn(self):
         """Collect a reference batch and initialize VBN statistics"""
-        print("Initializing Virtual Batch Normalization...")
         reference_states = []
         
         # Collect reference batch from random episodes
@@ -517,7 +516,6 @@ class ESAgent(nn.Module):
         # Extract and store the calculated statistics for efficient passing to workers
         self.vbn_stats = self.policy.get_vbn_stats()
         
-        print(f"VBN initialized with reference batch of size {reference_batch.shape[0]}")
 
     def choose_action(self, state: np.ndarray) -> int:
         """Chooses an action based on the policy's output logits."""
