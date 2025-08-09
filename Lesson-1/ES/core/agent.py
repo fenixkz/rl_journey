@@ -10,7 +10,7 @@ import random
 from typing import List
 import multiprocessing as mp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-from utils.atari_utils import get_atari_env
+from utils.atari_utils import get_atari_env, clip_reward
 from collections import deque
 
 def set_seed(seed):
@@ -217,7 +217,7 @@ class ESAgent(nn.Module):
             action = self.choose_action(state=state)
             next_state, reward, terminated, truncated, _ = self.env.step(action)
             done = terminated or truncated
-
+            if self.is_atari: reward = clip_reward(reward=reward)
             state = next_state
             total_reward += reward
         return total_reward
