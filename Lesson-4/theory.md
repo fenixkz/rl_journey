@@ -26,14 +26,14 @@ Okay, let's now see how we work directly with policies.
 
 ## Policy Gradient 
 
-As you probably remember, to optimize something, we usually define an objective function. In deep learning for supervised tasks, this is often a loss function that we aim to minimize. In Policy Optimization, our objective is the expected total reward, which we want to maximize.
+As you probably remember, to optimize something, we usually define an objective function. In deep learning for supervised tasks, this is often a loss function that we aim to minimize. In policy optimization, like we already seen before, our objective is the expected total reward, which we want to maximize.
 
 ### Objective Function
 
 Our goal is to find the parameters $\theta$ of a policy $\pi_\theta(a|s)$ that maximize the expected total discounted reward. Let:
 
 - $\pi_\theta(a|s)$ is an agent's policy parametrized by $\theta$, i.e. a neural network
-- $\tau$ be a trajectory (or episode): $\tau = (s_0, a_0, r_1, s_1, a_1, r_2, \dots, s_{T-1}, a_{T-1}, r_T)$. This is simply a sequence of steps of the agent in an environment.
+- $\tau$ be a trajectory: $\tau = (s_0, a_0, r_1, s_1, a_1, r_2, \dots, s_{T-1}, a_{T-1}, r_T)$. This is simply a sequence of steps of the agent in an environment.
 - $R(\tau) = \sum_{t=0}^{T-1} \gamma^t r_{t+1}$ be the total discounted reward for the trajectory $\tau$.
 - $p(\tau; \theta)$ be the probability of observing trajectory $\tau$ when following the policy $\pi_\theta$.
 
@@ -50,8 +50,8 @@ $$
 J(\theta) = \sum_{\tau} p(\tau; \theta) R(\tau)
 $$
 
-There can be incountable amount of all possible trajectories that the agent can end up with, but we are only interested in trajectories that result in the most expected return. 
-Thus, the main idea of Policy-based learning is to adjust $\theta$ (parameters) of our policy such that trajectories with high $R(\tau)$ are more probable.
+The thing is that there can be incountable amount of all possible trajectories that the agent can end up with, but we are only interested in trajectories that result in the most expected return. 
+Thus, the main idea of policy-based learning is to adjust $\theta$ (parameters) of our policy such that trajectories with high $R(\tau)$ are more probable.
 
 To maximize $J(\theta)$, we perform gradient ascent on the policy parameters $\theta$:
 
@@ -61,7 +61,7 @@ $$
 
 where $\alpha$ is a learning rate. The core task now is to find a usable expression for $\nabla_\theta J(\theta)$.
 
-### Deriving the Gradient $\nabla_\theta J(\theta)$
+### Deriving $\nabla_\theta J(\theta)$
 
 Let's start by taking the gradient of the objective function:
 
@@ -90,7 +90,7 @@ $$
 \nabla_\theta J(\theta) = \sum_{\tau} p(\tau; \theta) \nabla_\theta \log p(\tau; \theta) R(\tau)
 $$
 
-This sum can now be rewritten as an expectation under the policy $\pi_\theta$, which is much more convenient for sampling-based approaches:
+This sum can now be rewritten as an expectation under the policy $\pi_\theta$:
 
 $$
 \nabla_\theta J(\theta) = E_{\tau \sim \pi_\theta} [ \nabla_\theta \log p(\tau; \theta) R(\tau) ] \tag{1}
@@ -105,7 +105,9 @@ $$
 p(\tau; \theta) = p(s_0) \prod_{t=0}^{T-1} \pi_\theta(a_t | s_t) p(s_{t+1} | s_t, a_t)
 $$
 
-Or in other words, it's the probability of the initial state times the cumulative product of the probabilities of each action we took (given the state we were in) and the probabilities of the environment transitioning to the next state (given our state and action). The only thing that we know is $\pi_\theta(a_t | s_t)$ which is basically the output of our neural network. I wish there was a way to get rid of these other terms...
+Or in other words, it's the probability of the trajectory starting in some specific initial state times the cumulative product of the probabilities of each action we took (given the state we were in) and the probabilities of the environment transitioning to the next state (given our state and action). 
+
+And the only thing that we know or at least can compute is $\pi_\theta(a_t | s_t)$ (basically the output of our neural network). I wish there was a way to get rid of these other terms...
 
 Luckily, the logarithm has a wonderful property: $\log(X \cdot Y) = \log X + \log Y$. Applying this:
 
@@ -114,7 +116,7 @@ $$
 $$
 
 
-Now, here's the key insight: $p(s_{t+1} | s_t, a_t)$ is the environment's transition probability, and $p(s_0)$ is the distribution of initial states. Neither of these depends on our policy parameters $\theta$! They are characteristics of the environment itself. Thus, when we take the gradient with respect to $\theta$, these terms vanish:
+Now, here's the key insight: $p(s_{t+1} | s_t, a_t)$ is the environment's transition probability, and $p(s_0)$ is the distribution of initial states. Neither of these depends on our policy parameters $\theta$. They are characteristics of the environment itself. Thus, when we take the gradient with respect to $\theta$, these terms vanish:
 
 - $\nabla_\theta \log p(s_0) = 0$
 
@@ -150,11 +152,16 @@ $$
 \theta \leftarrow \theta + \alpha \nabla_\theta J(\theta)
 $$
 
-Intuitively, this update rule can be understood as follows: if an action $a_t$ taken in state $s_t$ (which we sampled from $\pi_\theta(a|s_t)$) resulted in a good subsequent return ($G_t$ is high and positive), then we want to increase the log-probability $\log \pi_\theta(a_t | s_t)$ (and thus the probability itself) of taking that action $a_t$ in state $s_t$ again. Conversely, if it resulted in a bad return ($G_t$ is low or negative), we want to decrease its probability. By doing this iteratively for all actions taken in many trajectories, the policy should eventually converge towards one that produces highest overall returns.
+Intuitively, this update rule can be understood as follows: 
+- We sample an action, $a_t$, given the current state, $s_t$, from $\pi_\theta(a|s_t)$
+- If this action resulted in a good subsequent return - $G_t$ is high and positive - then we want to increase the log-probability $\log \pi_\theta(a_t | s_t)$ (and thus the probability itself) of taking that action $a_t$ in state $s_t$ again. 
+- Conversely, if it resulted in a bad return - $G_t$ is low or negative - we want to decrease its probability. 
+
+By doing this iteratively for all actions taken in many trajectories, the policy should eventually converge towards one that produces highest overall returns.
 
 ### Digesting the equations
 
-Now, let's take a minute to discuss and give ourselves some room for thinking. Policy Gradient is one of the most important concepts in modern reinforcement learning and we have to have a deeper understanding of the matter.
+Now, let's take a minute to discuss and give ourselves some room for thinking. Policy gradient is one of the most important concepts in modern reinforcement learning and we have to have a deeper understanding of the matter.
 
 Our true goal is to maximize the total discounted reward, $J$, over a trajectory. We've initialized a neural network that processes a state and returns a policy (probability distribution over all possible actions). This policy is used to select actions, step in the environment, and collect rewards.
 
@@ -162,11 +169,13 @@ But if we impose this question to ourselfs:
 
 > Our neural network doesn't directly compute our true objective function, $J$. All it does is tell us what actions to choose. So how does optimizing the network also maximize $J$?
 
-There is an implicit connection, of course. By choosing better actions, we collect better rewards, thus maximizing $J$. But what about the math? How does the gradient "know" which way to go?
+There is an implicit connection, of course. By choosing better actions, we collect better rewards, thus maximizing $J$. But what about the math? How does the gradient "know" about this implicit connection and which way to go?
 
-The main trick in all Policy Gradient algorithms is to choose a clever loss function for the neural network. This loss function acts as a surrogate or a proxy for our true objective, $J$. We don't need to compute $J$ itself, we just need a computable function whose gradient points us in the right direction to improve $J$.
+The main trick in all PG algorithms is to choose a clever loss function for the neural network. This loss function acts as a surrogate or a proxy for our true objective, $J$. We don't need to compute $J$ itself, we just need a computable function whose gradient points us in the right direction to improve $J$.
 
-For anyone who has tackled a classification problem, the Negative Log-Likelihood (or Cross-Entropy) loss is a familiar tool. In short, it's a metric that compares the model's predicted probabilities to the actual outcomes. A lower loss means the predictions are closer to the ground truth. You might be surprised to learn, however, that Policy Gradient methods avoid this loss entirely, despite the problem being a natural fit for classification.
+For anyone who has tackled a classification problem, the Negative Log-Likelihood (NLL or Cross-Entropy) loss is a familiar tool. In short, it's a metric that compares the model's predicted probabilities to the actual outcomes. A lower loss means the predictions are closer to the ground truth. You might be surprised to learn, however, that PG methods avoid this loss entirely, despite the problem being a natural fit for classification.
+
+---
 
 **A Simple Analogy: The Shifted Parabola**
 
@@ -186,19 +195,17 @@ They have the exact same gradient!
 
 This means that if we take a step to minimize our easy-to-calculate function $f(x)$, we are also taking a step in the correct direction to minimize our true, hard-to-calculate objective $g(x)$. The gradients tell us the direction of steepest ascent, and since they are identical, the path to the minimum is the same for both functions, even though their actual values are different.
 
+--- 
+
 **Connecting the Analogy to Policy Gradient**
 
-This is precisely the trick we use.
-
-Our true, hard-to-calculate objective is $J$.
-
-And the loss of our neural network (or any other machine learning model) is a surrogate function of our objective:
+This is precisely the trick we use. Our true, hard-to-calculate objective is $J$. And the loss we choose to minimize should be a proxy or a surrogate function to our true objective. Our candidate:
 
 $$
 \text{Loss} = -G_t \log \pi_\theta(a_t | s_t)
 $$
 
-The PG Theorem proves that the gradient of this loss is exactly the negative of the gradient of our true objective function!
+The PG theorem proves that the gradient of this loss is exactly the negative of the gradient of our true objective function!
 
 $$
 \nabla_\theta \text{Loss} = -G_t \nabla_\theta \log \pi_\theta(a_t | s_t) = -\nabla_\theta J
@@ -224,22 +231,25 @@ So, by minimizing our cleverly chosen surrogate loss, we are automatically perfo
 
 ## REINFORCE algorithm
 
-This update rule (using Equation 3) gave birth to one of the earliest and most fundamental policy-gradient algorithms, called REINFORCE (also known as Monte Carlo Policy Gradient).
+This update rule (Equation 3) gave birth to one of the earliest and most fundamental policy-gradient algorithms, called REINFORCE (also known as Monte Carlo Policy Gradient).
 
 The REINFORCE algorithm approximates the expectation $E_{\tau \sim \pi_\theta}[\cdot]$ by sampling trajectories using the current policy $\pi_\theta$. Here's a conceptual outline:
 
-- Initialize the policy network parameters $\theta$ (e.g., weights and biases of a neural network).
-- Loop for a number of training iterations: 
-  - a. Generate Episode(s): Run one (or several) full episode(s) using the current policy $\pi_\theta$. 
-    - For each step t within an episode, starting from $s_t$: 
-      - i. The policy $\pi_\theta(a|s_t)$ outputs action probabilities (or parameters for an action distribution). 
-      - ii. Sample an action $a_t$ from this distribution. 
-      - iii. Execute action $a_t$ in the environment, observe the next state $s_{t+1}$ and reward $r_{t+1}$. 
-      - iv. Store the tuple $(s_t, a_t, r_{t+1})$ (and $\log \pi_\theta(a_t|s_t)$ if you want to pre-calculate it, or just $s_t$ and $a_t$ to recompute it later). 
-  - b. Calculate Returns: For each episode generated, once it's complete, iterate backwards from the last step $T-1$ to the first step $t=0$. 
-    - For each step $t$, calculate the discounted return $G_t = r_{t+1} + \gamma r_{t+2} + \dots + \gamma^{T-t-1} r_T$. (This is efficiently done as $G_t = r_{t+1} + \gamma G_{t+1}$, starting with $G_T = 0$). 
-  - c. Compute Policy Gradient Estimate: For each step $t$ in each episode, calculate the term $G_t \nabla_\theta \log \pi_\theta(a_t | s_t)$. Sum these terms up across all steps and all episodes in the batch. $\hat{g} = \sum_{\text{episodes}} \sum_{t=0}^{T-1} G_t \nabla_\theta \log \pi_\theta(a_t | s_t)$ (This would be an estimate for one or more episodes). 
-  - d. Update Policy Parameters: $\theta \leftarrow \theta + \alpha \hat{g}$
+1. Initialize the policy network parameters $\theta$ (e.g., weights and biases of a neural network).
+2. Loop for a number of training iterations: 
+    1. Get initial state from the environment- $s_t$
+    2. Run one full episode using the current policy $\pi_\theta$ 
+        1. The policy $\pi_\theta(a|s_t)$ outputs action probabilities (or parameters for an action distribution).
+        2. Sample an action $a_t$ from this distribution. 
+        3. Execute action $a_t$ in the environment, observe the next state $s_{t+1}$, reward $r_{t+1}$, and whether $s_{t+1}$ is terminal. 
+        4. Store the tuple $(s_t, a_t, r_{t+1}, \text{done}_t)$ and $\log \pi_\theta(a_t|s_t)$ in some temporal memory.
+    3. Calculate discounted return for current episode: $G_t = r_{t+1} + \gamma r_{t+2} + \dots + \gamma^{T-t-1} r_T$
+        1. Iterate backwards from the last step $T-1$ to the first step $t=0$ for all rewards in the memory. 
+        2. For each $r_t$, calculate the discounted return: $G_t = r_{t+1} + \gamma G_{t+1}$, starting with $G_T = 0$. 
+    4. Compute policy gradient estimate 
+        1. For each corresponding $G_t$ and $\log \pi_\theta(a_t | s_t)$ calculate: $G_t \nabla_\theta \log \pi_\theta(a_t | s_t)$. 
+        2. Sum these terms up across all steps: $L = -\sum_{t=0}^{T-1} G_t \nabla_\theta \log \pi_\theta(a_t | s_t)$. 
+    5. Apply a gradient descent step: $\theta \leftarrow \theta - \alpha \hat{L}$
 
 REINFORCE is powerful because it directly optimizes the policy to maximize rewards, but it can have high variance in its gradient estimates due to its reliance on full Monte Carlo returns $G_t$. This high variance can make learning slow or unstable, which motivated later developments like Actor-Critic methods.
 
@@ -268,6 +278,8 @@ When we normalize the returns $G_t$ within a single episode (by subtracting the 
 
 For example in CartPole the reward is +1 for every step the pole is balanced. The raw $G_t$ (which, if $\gamma \approx 1$, is roughly the number of remaining steps) directly tells the agent how good an action was in terms of future survival. Normalizing this might obscure the simple "longer is better" signal, especially if the episode lengths vary a lot. An action leading to $G_t=50$ is unambiguously better than one leading to $G_t=10$. After normalization within their respective (potentially short) episodes, their processed values might not reflect this absolute difference as strongly.
 
+So, usually normalization helps to stabilize the updates for a neural network, but you should be cautious about it.
+
 ### Entropy Exploration 
 ---
 
@@ -281,15 +293,11 @@ I know that we already defined that stochastic policies are better than determin
 
 **What is Entropy (in Policy Terms)?**
 
-You've probably heard of entropy, maybe from a physics class or information theory. People often describe it as a measure of "chaos" or "disorder," which is a good starting point.
+You've probably heard of entropy, maybe from a physics class or information theory. People often describe it as a measure of "chaos" or "disorder," which is a good starting point. In our world of RL, it’s even more helpful to think of entropy as a measure of uncertainty or surprise.
 
-In our world of RL, it’s even more helpful to think of entropy as a measure of uncertainty or surprise.
-
-Imagine our policy, $\pi_\theta(s,a)$, is about to pick an action.
-
-If the policy is totally unsure what to do (e.g., for 3 actions, the probabilities are [0.33, 0.33, 0.33]), then we have no idea what's coming next. The outcome is very surprising! This is a high-entropy policy.
-
-If the policy is almost certain what it's going to do (e.g., [0.98, 0.01, 0.01]), we're not surprised at all when it picks that main action. The outcome is predictable. This is a low-entropy policy.
+Imagine our policy, $\pi_\theta(s,a)$, is about to pick an action. 
+- If the policy is totally unsure what to do (e.g., for 3 actions, the probabilities are [0.33, 0.33, 0.33]), then we have no idea what's coming next. The outcome is very surprising! This is a high-entropy policy. 
+- If the policy is almost certain what it's going to do (e.g., [0.98, 0.01, 0.01]), we're not surprised at all when it picks that main action. The outcome is predictable. This is a low-entropy policy.
 
 This idea is captured neatly in the classic formula. Let's quickly break it down intuitively:
 
@@ -301,9 +309,7 @@ Don't worry about the math too much. The key part is that we're essentially calc
 
 **So, why is this useful for RL?**
 
-It all comes down to the fundamental trade-off between exploitation (using the best strategy you've found so far) and exploration (trying new things to find something even better).
-
-Adding the entropy term to our loss function gives the agent a secondary objective. We are effectively telling it:
+It all comes down to the fundamental trade-off between exploitation (using the best strategy you've found so far) and exploration (trying new things to find something even better). Adding the entropy term to our loss function gives the agent a secondary objective. We are effectively telling it:
 
 > Your main job is to maximize rewards. However, I'll also give you a small bonus for keeping your options open and staying curious.
 
@@ -332,26 +338,21 @@ Here:
 
 When we take the gradient of this new objective with respect to $\theta$ and perform gradient ascent (or gradient descent on the negative objective), the entropy term adds an extra push. This "entropy gradient" encourages changes to $\theta$ that increase the entropy of the policy - that is, make the action probabilities more uniform.
 
-#### The Effect
-
-The agent is still primarily driven to maximize rewards (via the $G_t \log \pi_\theta(a_t|s_t)$ term). But now, it also gets a little "bonus reward" for being exploratory.
-
-- If all actions in a state seem equally good (or equally bad, i.e., advantage is near zero for all chosen actions), the entropy term will dominate and push the policy to explore more.
-- If one action is clearly much better (high positive advantage), the main objective term will likely overpower the entropy term for that specific action, but the policy might still maintain some randomness for less critical actions or states.
-
 Think of $\beta$ as a knob in exploration/exploitation trade-off. Finding the right balance for $\beta$ (often through experimentation, or by scheduling it to decrease over time) is key. Many advanced algorithms like A3C and PPO almost always include this entropy bonus in their objective functions because it consistently leads to more robust and effective learning. It's a simple trick that makes a big difference!
 
 ## Actor Critic 
 
 Okay, so we've seen how to estimate the policy gradient using Monte Carlo returns. But as you remember we had the same battle in Value-based approach about waiting for full trajectories or updating at each time step. The REINFORCE algorithm has a high variance, because each trajectory is different from another (we basically improve it each time, so of course it will differ). But what we can do with this variance?
 
-One of the steps that we can take is to reduce the variance in $G_t$ (well it is the main source of high variance). $G_t$ is the estimate of how good the action $a_t$ was: how much (discounted) rewards  were gained after this action was taken. Given the stochastic nature of the policy and the environment, performing same action $a_t$ in the same state $s_t$ can result in very different $G_t$. Imagine, by the random chance the agent has won after taking this action and $G_t$ is high, or it can easily be the other way around agent can sample a different action $a_{t+1}$ or can transit to a different state $s_{t+1}$ (because of stochastic env), and result in low $G_t$. This is the source of high variance. How can we reduce these fluctuations? Solution is to introduce some baseline $b(s_t)$ and subtract it from the return $G_t$.  
+One of the steps that we can take is to reduce the variance in $G_t$ (well it is the main source of high variance). $G_t$ is the estimate of how good the action $a_t$ was: how much (discounted) rewards  were gained after this action was taken. Given the stochastic nature of the policy and the environment, performing same action $a_t$ in the same state $s_t$ can result in very different $G_t$. Imagine, by the random chance the agent has won after taking this action and $G_t$ is high, or it can easily be the other way around agent can sample a different action $a_{t+1}$ or can transit to a different state $s_{t+1}$ (because of stochastic env), and result in low $G_t$. This is the source of high variance. **How can we reduce these fluctuations?** 
 
-Let's $b(s_t)$ be the baseline for $s_t$, it will represent what is the expected (average) return from this state. Then, by sutracting it from our estimate of return, we can smooth the noise in random fluctuations. As you probably already guessed, $b(s_t)$ sounds incredibly similar to $V(s_t)$ and it is basically the same thing! So, our solution to reduce the variance in policy-gradient method is to inject value-based approach! 
+Solution is to introduce some baseline $b(s_t)$ and subtract it from the return $G_t$. Let's $b(s_t)$ be the baseline for $s_t$, it will represent what is the expected (average) return from this state. Then, by sutracting it from our estimate of return, we can smooth the noise in random fluctuations. 
+
+You should probably remember that we already coined a term for that expression: "the expected (average) return the agent obtains if it starts from this state and then acts according to $\pi_\theta$"? Exactly, our baseline is basically $V^{\pi}(s_t)$. It means that our solution to reduce the variance in policy-gradient method is to inject value-based approach! 
 
 This is the main idea of Actor-Critic method. The name is coming from the two main components of this method: 
-- Actor (policy) that acts, i.e. choosing actions
-- Critic (value) that critics, i.e. saying how good or bad that actions are
+- Actor (policy) that acts, i.e. choosing action $a_t$ given state $s_t$
+- Critic (value) that critics, i.e. saying how higher or lower total return that action obtained in comparison to the average return from this state
 
 So, we converged to the point of combining both worlds! 
 
@@ -364,7 +365,7 @@ $$
 \nabla_\theta J(\theta) = E_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{T-1} (G_t - b(s_t)) \nabla_\theta \log \pi_\theta(a_t | s_t) \right]
 $$ 
 
-However, the baseline function is only a function of the state and is independent of the action, so subtracting it doesn’t affect the expected value of the policy gradient. That is, the expected policy gradient remains unchanged:
+However, the baseline function is only a function of the state and is independent of the action (it is basically a constant), so subtracting it doesn’t affect the expected value of the policy gradient. That is, the expected policy gradient remains unchanged:
 
 $$
 \nabla_\theta J(\theta) = E_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{T-1} (G_t - b(s_t)) \nabla_\theta \log \pi_\theta(a_t | s_t) \right] \\
@@ -378,37 +379,37 @@ $$
  = \sum_{t=0}^{T-1} E_{\tau \sim \pi_\theta} \left [ b(s_t) \nabla_\theta \log \pi_\theta(a_t | s_t) \right]
 $$
 
-Now, let's focus on a single term in this sum for a specific time step t. The expectation $E_{\tau \sim \pi_\theta}$ is over trajectories, which means it involves an expectation over states $s_t$ that can occur at time t and actions $a_t$ taken in those states according to $\pi_\theta$.
+Now, let's focus on a single term in this sum for a specific time step $t$. The expectation $E_{\tau \sim \pi_\theta}$ is over trajectories, which means it involves an expectation over states $s_t$ that can occur at time $t$ and actions $a_t$ taken in those states according to $\pi_\theta$.
 
-For a specific time t, we can write the expectation as:
+For a specific step $t$, we can write the expectation as:
 $$
 E_{s_t \sim p_t(\cdot;\theta)} \left[ E_{a_t \sim \pi_\theta(\cdot|s_t)} \left[ b(s_t) \nabla_\theta \log \pi_\theta(a_t | s_t) \right] \right]
 $$
-where $p_t(s_t; \theta)$ is the probability distribution of states at time t under policy $\pi_\theta$ (imagine you collected billion of transitions using policy $\pi_\theta$ and $p_t(s_t; \theta)$ would be a number of times this state $s_t$ present in this data).
+where $p_t(s_t; \theta)$ is the probability distribution of states at time $t$ under policy $\pi_\theta$ (imagine you collected billion of transitions using policy $\pi_\theta$ and $p_t(s_t; \theta)$ would be a number of times this state $s_t$ present in this data).
 
 Let's expand the inner expectation (the one over actions $a_t$ for a given $s_t$):
 $$
-E_{a_t \sim \pi_\theta(\cdot|s_t)} \left[ b(s_t) \nabla_\theta \log \pi_\theta(a_t | s_t) \right] = \sum_{a_t} \pi_\theta(a_t | s_t) \left[ b(s_t) \nabla_\theta \log \pi_\theta(a_t | s_t) \right]
+E_{a_t \sim \pi_\theta(\cdot|s_t)} \left[ b(s_t) \nabla_\theta \log \pi_\theta(a_t | s_t) \right] = \sum_{a} \pi_\theta(a_t | s_t) \left[ b(s_t) \nabla_\theta \log \pi_\theta(a_t | s_t) \right]
 $$
 Since $b(s_t)$ does not depend on $a_t$ (it's a function of state $s_t$ only), we can pull it out of this inner summation:
 $$
-= b(s_t) \sum_{a_t} \pi_\theta(a_t | s_t) \nabla_\theta \log \pi_\theta(a_t | s_t)
+= b(s_t) \sum_{a} \pi_\theta(a_t | s_t) \nabla_\theta \log \pi_\theta(a_t | s_t)
 $$
 Now, remember the log-derivative trick we used earlier: $\nabla_\theta \pi_\theta(a_t | s_t) = \pi_\theta(a_t | s_t) \nabla_\theta \log \pi_\theta(a_t | s_t)$.
 
 So, the sum becomes:
 $$
-= b(s_t) \sum_{a_t} \nabla_\theta \pi_\theta(a_t | s_t)
+= b(s_t) \sum_{a} \nabla_\theta \pi_\theta(a_t | s_t)
 $$
 
 We can swap the summation and the gradient operator:
 $$
-= b(s_t) \nabla_\theta \sum_{a_t} \pi_\theta(a_t | s_t)
+= b(s_t) \nabla_\theta \sum_{a} \pi_\theta(a_t | s_t)
 $$
 
 And here's the crucial step. For any state $s_t$, the sum of probabilities of taking all possible actions $a_t$ according to the policy $\pi_\theta(a_t | s_t)$ must be equal to 1 (because the policy is a probability distribution):
 $$
-\sum_{a_t} \pi_\theta(a_t | s_t) = 1
+\sum_{a} \pi_\theta(a_t | s_t) = 1
 $$
 
 Substituting this back:
@@ -438,7 +439,9 @@ Okay, so the objective function is unaffected by introducing the baseline, but w
 
 Okay, so the baseline $b(s_t)$ helps in reducing the variance of our policy gradient estimates. The most common choice for this baseline is an estimate of the state-value function $V^\pi(s_t)$ for the current policy $\pi$. And now it's time to thank our existing knowledge in Value-based RL, because we indeed have methods to estimate these state-values!
 
-In actor-critic methods, the component responsible for learning this baseline $V^\pi(s_t)$ is called the critic. It is typically a function approximator (like a neural network) with its own set of parameters, let's say $\phi$. So, the critic learns an estimate $V_\phi(s_t) \approx V^\pi(s_t)$.
+In actor-critic methods, the component responsible for learning this baseline $V^\pi(s_t)$ is called the critic. It is typically a function approximator (like a neural network) with its own set of parameters, let's say $\phi$. So, the critic learns an estimate 
+
+$$V_\phi(s_t) \approx V^\pi(s_t)$$
 
 How does it learn $V_\phi(s_t)$? As you guessed correctly, using Temporal Difference (TD) Learning!
 
@@ -451,13 +454,13 @@ $$
 
 Given the target, we can calculate the TD error to update the critic's parameters:
 $$
-\delta_t = y_t - V_\phi(s_t) = (r_{t+1} + \gamma V_\phi(s_{t+1})) - V_\phi(s_t)
+\delta_t = y_t - V_\phi(s_t) = r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)
 $$
 
 Exactly like in Deep Q-Network, we define a loss (L2 loss or smooth L1 loss):
 
 $$
-L(\phi) = \delta_t^2 = ((r_{t+1} + \gamma V_\phi(s_{t+1})) - V_\phi(s_t))^2
+L(\phi) = \delta_t^2 = (r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t))^2
 $$
 
 And we use gradient descent to update $\phi$ with a separate learning rate $\alpha_C$:
@@ -470,9 +473,11 @@ This is exactly like what we have already seen in previous lesson! The only diff
 
 ### Advantage Actor-Critic
 
-Okay, now we understand how we can utilize and improve a separate network to estimate the value of a given state. Now, the actor is simply updated using this term: $G_t - b(s_t)$, where the baseline is approximated via the critic $b(s_t) \approx V_\phi(s_t)$.
+Okay, now we understand how we can utilize and improve a separate network to estimate the value of a given state. Now, the actor gradient update is proportional to $G_t - b(s_t)$, where the baseline is approximated via the critic $b(s_t) \approx V_\phi(s_t)$.
 
-But that means that we are still have to wait until the end of episode to observe $G_t$. But wait a minute... $G_t$ term indicates what return does action $a_t$ taken in state $s_t$ yield if we follow our policy afterwards. Does it sound familiar to you? It is exactly the definition of Q-value. So, it means that:
+But that means that we are still have to wait until the end of episode to observe $G_t$. But wait a minute... 
+
+$G_t$ term indicates what return does action $a_t$ taken in state $s_t$ yield if we follow our policy afterwards. Does it sound familiar to you? It is exactly the definition of Q-value. So, it means that:
 
 $$
 G_t - b(s_t) = G_t - V_\phi(s_t) = Q^\pi(s_t, a_t) - V_\phi(s_t) = A^\pi(s_t, a_t)
@@ -488,10 +493,10 @@ $$
 
 Great, but still the problem is not solved, to estimate $A(s_t, a_t)$ we have to observe $G_t$, which means that we have to wait until the completion of an episode. We can't learn step by step like we did in DQN.
 
-To be able to learn at each step we have to find a good estimate for advantage. In other words, given a transition step $(s_t, a_t, r_{t+1}, s_{t+1})$ we need somehow to estimate $A(s_t, a_t)$. Let us look closely at the TD-target that we were computing for critic:
+To be able to learn at each step we have to find a good estimate for advantage. In other words, given a transition step $(s_t, a_t, r_{t+1}, s_{t+1})$ we need somehow to estimate $A(s_t, a_t)$ without the need to wait until the end of the episode to calculate the total returns. Let us look closely at the TD-target that we were computing for critic:
 
 $$
-\delta_t = (r_{t+1} + \gamma V_\phi(s_{t+1})) - V_\phi(s_t)
+\delta_t = r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)
 $$
 
 The TD-target - $r_{t+1} + \gamma V_\phi(s_{t+1})$ - can serve as a good single-step estimate of $Q^\pi(s_t, a_t)$, don't you think? Because it literally is. And that means that:
@@ -506,6 +511,7 @@ $$
 A^\pi(s_t, a_t) \approx \delta_t
 $$
 
+---
 
 Okay, I think we made a juge leap. Time to slow down a little. Let's recap once again what is the overall pipeline:
 
@@ -513,8 +519,8 @@ Okay, I think we made a juge leap. Time to slow down a little. Let's recap once 
 2. We sample from this distribution to choose an action, $a_t$ and we store the log-probability of that action, $\log \pi_\theta(a_t | s_t)$
 3. We apply this action to the environment and we collect $(s_t, a_t, r_{t+1}, s_{t+1})$
 4. Critic, $\phi$, processes $s_t$ and estimates the state-value: $V_\phi(s_t)$
-5. We compute the TD-target as $r_{t+1} + \gamma V_\phi(s_{t+1})$
-6. We compute the TD-error: $\delta_t = r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$
+5. We compute the TD-target as $y_t = r_{t+1} + \gamma V_\phi(s_{t+1})$
+6. We compute the TD-error: $\delta_t = y_t - V_\phi(s_t)$
 
 Now this single value, $\delta_t$, serves two purposes at once:
 
@@ -525,7 +531,7 @@ L_\phi  = \delta_t^2 \\
 \phi \leftarrow \phi - \alpha_C \nabla_\phi L_\phi
 $$
 
-- For the actor: We multiply actor's loss as advantage times the log-probability and then apply a gradient descent on $\theta$ with a separate learning rate $\alpha_A$
+- For the actor: We compute actor's loss as TD-error times the log-probability and then apply a gradient descent on $\theta$ with a separate learning rate $\alpha_A$
 
 $$
 L_\theta = -\delta_t \cdot \log \pi_\theta(a_t \mid s_t) \\
@@ -534,6 +540,84 @@ $$
 
 
 And that is the Advantage Actor-Critic (AAC) algorithm. The critic learns the state-value function $V(s)$, and the actor uses the critic's TD-error as the advantage estimate to improve its policy at every single step!
+
+We started with introducing a baseline with sole purpose of decreasing variance in $G_t$ and concluded in step-by-step learning with advantage estimate. If you remember in previous lessons we had the same discussion that one step learning has much less variance but higher bias. So, we decreased the variance but increased the bias, this is the price we are willing to pay. But of course nobody is forcing us to stick with one step learning, what stops us from collecting N-steps and use N-step learning? N-o-t-h-i-n-g.
+
+## N-step return 
+
+AAC works great, but as we already discussed one-step learning  has a high bias despite having low variance. In previous lessons we have seen that exnteding one step learning to N-step provides better results, can we adopt it to PG algorithms? Yes.
+
+So, the formula we have seen is:
+$$
+\theta \leftarrow \theta + \alpha_A \cdot A(s_t, a_t) \cdot \nabla_\theta \log \pi_\theta(a_t | s_t)
+$$
+
+where $A(s_t, a_t)$ is estimated by the critic via TD-learning or more specifically TD(0) learning:
+
+$$
+A(s_t, a_t) = \delta_t \\
+\delta_t =  r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)
+$$
+
+Our goal is to extend the AAC to N-step learning. Greats news that we already know how to do it:
+
+- First, let our actor interact with the environment for N steps, collecting a sequence of states, actions, and rewards. Let's say we start at time t:
+
+$$(s_t, a_t, r_{t+1}, s_{t+1}, a_{t+1}, r_{t+2}, \ldots, s_{t+N-1}, a_{t+N-1}, r_{t+N}, s_{t+N})$$
+
+- Then, we calculate the N-step return. Let's call it $G_{t:t+N}$ and it is the sum of discounted rewards for these N steps, plus the discounted value of the state $s_{t+N}$ estimated by our critic:
+
+$$
+G_{t:t+N} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3} + \cdots + \gamma^{N-1} r_{t+N} + \gamma^N V_\phi(s_{t+N})
+$$
+
+**Important Note:** If your episode ends before N steps are completed (say it ends at step $k < N$, after reward $r_{t+k}$ and landing in a terminal state $s_{t+k}$), then the return calculation stops there, and $V_\phi(s_{\text{terminal}}) = 0$. For example, if $N=5$ but the episode ends at step 3 (relative to $t$):
+
+$$
+G_{t:t+3} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3} 
+$$
+
+
+All right, choosing the optimal $N$ is another fine-tuning task that is going to be different from problem to problem. But if you remember that we had eligibility traces algorithm that was combining different N-step returns? We have something similar in PG algorithms called **Generalized Advantage Estimation (GAE)**. The core idea is to elegantly combine different N-step returns into one advantage estimate.
+
+$$
+A_t^{GAE} = \sum_{k=0}^\infin (\gamma\lambda)^k \delta_{t+k}
+$$
+
+**Important note**: $\delta_{t+k}$ represents here a single one-step TD-error at step $k$ or in other words: 
+$$
+\delta_{t+k} = r_{t+k+1} + \gamma V_\phi(s_{t+k+1}) - V_\phi(s_{t+k})
+$$
+
+So, GAE is nothing else but a exponentially-weighted average of single-step returns at different steps.
+
+- $\lambda = 0$: $A_t^{GAE} = \sum_{k=0}^\infin (\gamma \cdot 0)^k \delta_{t+k} = \delta_{t}$
+
+    We assume that $0^0 = 1$, so if lambda is zero, then GAE is simply a single step return at current step
+- $\lambda = 1$: $A_t^{GAE} = \sum_{k=0}^\infin \gamma^k \delta_{t+k}$ which is an infinite sum, but if we open up the equation that all $V_\phi(s_t)$ terms cancel out resulting in $ \sum_{k=0}^\infin \gamma^k r_{t+k+1} - V_\phi(s_t) = G_t - V_\phi(s_t)$. 
+
+    So if lambda is 1, then GAE is a monte-carlo return.
+
+By choosing a value for λ between 0 and 1 (a common value is 0.95), we get a sophisticated blend of all possible k-step estimators. It gives more weight to the immediate TD-error but still incorporates information from many steps into the future, without being as noisy as a full Monte Carlo return.
+
+### Practical Implementation
+
+In code, we don't compute an infinite sum. We calculate GAE backward over the finite rollout of M steps we collected:
+
+- The agent collect a rollout (trajectory) by stepping M times in the environment. In addition to the usual tuple of experience we also collect $V_\phi(s_t)$ and $\log \pi_\theta(a_t \mid s_t)$
+
+- Starting from the last step, $t = M$ and moving backward to the first, we use the following recursive logic
+    - Calculate one step TD-error: 
+        - $\delta_t = r_t + \gamma \cdot V_\phi(s_{t+1})$ 
+        - $\delta_t = r_t$ if $s_{t+1}$ is terminal
+        - Since we collected only up to $V_\phi(s_M)$ we hvae to explicitly calculate $V_\phi(s_{M+1})$
+    - Calculate $A_t^{GAE}$
+        - $A_t^{GAE} = \delta_t + \gamma \lambda A_{t+1}^{GAE}$
+        - $A_t^{GAE} = \delta_t$ if $s_{t+1}$ is terminal
+        - In the very beginning $A_{t+1}^{GAE} = 0$
+
+ 
+This makes it very efficient to compute the GAE for every step in our collected trajectory. This GAE value is then used as the advantage estimate in the actor's loss function, leading to much more stable and effective policy updates.
 
 ## A3C
 
@@ -544,7 +628,7 @@ Okay, so we train in the digital world. What stops us from making a bunch of ind
 1. Speed up training
 2. Diversify the training data
 
-Okay, so far so good. More data, more diverse data, faster training - sounds like a win-win. But we need to talk about why it might be making our training worse.
+Okay, so far so good. More data, more diverse data, faster training - sounds like a win-win-win. But we need to talk about why it might be making our training worse.
 
 Remember how we talked about PG methods, like REINFORCE and AAC, being on-policy? That means they learn from data generated by the same policy that we are trying to improve. But it can be easily seen how this Naruto's approach can break this condition. Let's review how:
 
@@ -557,7 +641,7 @@ Remember how we talked about PG methods, like REINFORCE and AAC, being on-policy
 
 ### Why A3C works
 
-Despite that potential hiccup we discussed before, A3C used that Naruto's approach and showed impressive results. Why?
+Despite that potential hiccup we discussed before, authors of Asynchronous Advantage Actor-Critic (A3C) used that Naruto's approach and showed impressive results. Why?
 
 1. In A3C workers typically sync their $\theta_{local}$ with $\theta_{global}$ pretty frequently (e.g., after collecting a small batch of, say, 5 or 20 steps). So, the $\theta_{local}$ isn't ancient history; it's just a little bit behind the curve. The difference between the policy used for data collection and the global policy being updated is often small.
 
@@ -701,77 +785,6 @@ Now that the rollout is complete, the entire team stops rowing. It's time for th
 Once the update is complete, the new, improved strategy is ready, and the entire process repeats, starting with a new rollout from Phase 1.
 
 Now because we have just onle policy and all the parallel environments step in the synchronous manner, the data gather is on-policy and we do not need to care about PG theorem not working! And more importantly we just made the learning pipeline much simpler to implement.
-
-
-## N-step return 
-
-Okay, A2C works great, but we can improve it by adopting N-step return instead of using only one step estimate.
-
-So, the formula we have seen and implemented in the A2C is:
-$$
-\theta \leftarrow \theta + \alpha_A \cdot A(s_t, a_t) \cdot \nabla_\theta \log \pi_\theta(a_t | s_t)
-$$
-
-where $A(s_t, a_t)$ is estimated by the critic via TD-learning or more specifically TD(0) learning:
-
-$$
-\delta_t =  r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t) \\
-\theta_{\phi} \leftarrow \theta_{\phi} + \alpha_C \cdot \delta_t^2
-$$
-
-Our goal is to extend the AAC to N-step learning. Greats news that we already know how to do it:
-
-- First, let our actor interact with the environment for N steps, collecting a sequence of states, actions, and rewards. Let's say we start at time t:
-
-$$(s_t, a_t, r_{t+1}, s_{t+1}, a_{t+1}, r_{t+2}, \ldots, s_{t+N-1}, a_{t+N-1}, r_{t+N}, s_{t+N})$$
-
-- Then, we calculate the N-step return:
-
-The N-step return, let's call it $G_{t:t+N}$, from state $s_t$ is the sum of discounted rewards for these N steps, plus the discounted value of the state $s_{t+N}$ estimated by our critic:
-
-$$
-G_{t:t+N} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3} + \cdots + \gamma^{N-1} r_{t+N} + \gamma^N V_\phi(s_{t+N})
-$$
-
-**Important Note:** If your episode ends before N steps are completed (say it ends at step $k < N$, after reward $r_{t+k}$ and landing in a terminal state $s_{t+k}$), then the return calculation stops there, and $V_\phi(s_{\text{terminal}}) = 0$. For example, if $N=5$ but the episode ends at step 3 (relative to $t$):
-
-$$
-G_{t:t+3} = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3}
-$$
-
-since $V_\phi(s_{\text{terminal}}) = 0$.
-
-All right, choosing the optimal $N$ is another fine-tuning task that is going to be different from problem to problem. But if you remember that we had eligibility traces algorithm that was combining different N-step returns? We have something similar in PG algorithms called Generalized Advantage Estimation (GAE).
-
-$$
-A_t^{GAE} = \sum_{k=0}^\infin (\gamma\lambda)^k \delta_{t+k}
-$$
-
-**Important note**: $\delta_{t+k}$ represents here a single one-step TD-error at step $k$ or in other words: 
-$$
-\delta_{t+k} = (r_{t+k+1} + \gamma V(s_{t+k+1})) - V(s_{t+k})
-$$
-
-So, GAE is nothing else but a exponentially-weighted average of single-step returns at different steps.
-
-- $\lambda = 0$: $A_t^{GAE} = \sum_{k=0}^\infin (\gamma \cdot 0)^k \delta_{t+k} = \delta_{t} $. 
-
-    So if lambda is zero, then GAE is simply a single step return at current step
-- $\lambda = 1$: $A_t^{GAE} = \sum_{k=0}^\infin \gamma^k \delta_{t+k}$ which is an infinite sum, but $V(s_t)$ terms are cancelling out resulting in $ \sum_{k=0}^\infin \gamma^k r_{t+k+1} - V(s_t) = G_t - V(s_t)$. 
-
-    So if lambda is 1, then GAE is a monte-carlo return.
-
-By choosing a value for λ between 0 and 1 (a common value is 0.95), we get a sophisticated blend of all possible k-step estimators. It gives more weight to the immediate TD-error but still incorporates information from many steps into the future, without being as noisy as a full Monte Carlo return.
-
-### Practical Implementation
-
-In code, we don't compute an infinite sum. We calculate GAE backward over the finite rollout of M steps we collected. Starting from the last step and moving backward to the first, we use the following recursive formula:
-$$
-A_t^{GAE} = \delta_t + \gamma \lambda A_{t+1}^{GAE}
-​$$
- 
-This makes it very efficient to compute the GAE for every step in our collected trajectory. This GAE value is then used as the advantage estimate in the actor's loss function, leading to much more stable and effective policy updates.
-
 
 ## Policy Update Stability
 

@@ -29,7 +29,6 @@ class AgentDQN(DQNBase):
         # Overwrite some specific params
         agent_config.memory = "per"
         agent_config.dueling = True 
-        agent_config.memory_size = max(100000, agent_config.memory_size)   # For PER we need a bigger buffer  
 
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari)
@@ -42,7 +41,7 @@ class AgentDQN(DQNBase):
         self.beta_end = agent_config.beta_final
         self.beta_increase_steps = agent_config.beta_increase_steps
         self.current_beta = self.beta_start
-        self.step_count = 0
+        self.learning_step_count = 0
         
         # ---------- C51 PARAMS ------------
         self.n_atoms = agent_config.n_atoms  
@@ -64,7 +63,7 @@ class AgentDQN(DQNBase):
             self._setup_default_rainbow_networks(agent_config)
 
     def _setup_default_rainbow_networks(self, agent_config: AgentConfig):
-        """Setup RAINBOW networks combining Noisy, Distributional, and Dueling architectures"""
+        """Setup RAINBOW networks combining Distributional, and Dueling architectures"""
         if not self.is_atari:
             self.online_model = DistributionalDuelingFC(
                 self.observation_space.shape[0], self.action_space.n, 
@@ -87,7 +86,7 @@ class AgentDQN(DQNBase):
         # Copy the initial weights
         self.hard_update_target_network()
         
-        # Re-initialize optimizer with new model parameters
+        # Re-initialize optimizer with new model parameters, Adam is said to be better than RMSProp in RAINBOW paper
         self.optimizer = torch.optim.Adam(self.online_model.parameters(), lr = self.lr, eps = 1.5e-4) # Per RAINBOW implementation
 
     def _setup_noisy_rainbow_networks(self, agent_config: AgentConfig):
@@ -117,7 +116,6 @@ class AgentDQN(DQNBase):
         # Re-initialize optimizer with new model parameters
         self.optimizer = torch.optim.Adam(self.online_model.parameters(), lr = self.lr, eps = 1.5e-4) # Per RAINBOW implementation
     
-
     def choose_action(self, state: np.ndarray):
         '''
         Greedy policy with noisy networks for distributional DQN.
@@ -130,7 +128,7 @@ class AgentDQN(DQNBase):
         with torch.no_grad():
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
             log_probs = self.online_model(state_tensor)  # [1, action_space, n_atoms]
-            probs = log_probs.exp()
+            probs = log_probs.exp() # log_softmax -> softmax
             
             # Compute expected Q-values: Q(s,a) = sum_i z_i * p_i(s,a)
             q_values = (probs * self.support.view(1, 1, -1)).sum(dim=-1)
@@ -209,7 +207,7 @@ class AgentDQN(DQNBase):
         Implements learning with RAINBOW, combining all techniques.
         """
         # Anneal beta for PER
-        progress = min(self.step_count / self.beta_increase_steps, 1.0)
+        progress = min(self.learning_step_count / self.beta_increase_steps, 1.0)
         self.current_beta = self.beta_start + (self.beta_end - self.beta_start) * progress
         
         # 1. Sample a batch of prioritized experiences from PER buffer
@@ -252,7 +250,7 @@ class AgentDQN(DQNBase):
             self.online_model.train()
             self.target_model.train()
             
-        # 5. Calculate cross-entropy loss
+        # 5. Calculate cross-entropy loss, current dist_log is already using logartihm
         loss = -(projected_dist * current_dist_log).sum(dim=-1)
         
         # 6. Calculate TD-errors for PER using L1 loss on expected Q-values
@@ -284,7 +282,7 @@ class AgentDQN(DQNBase):
         if self.use_noisy_net: self.reset_noise()
         
         # Increment step counter for beta annealing
-        self.step_count += 1
+        self.learning_step_count += 1
         
         return loss.item()
 
@@ -297,15 +295,13 @@ class AgentDQN(DQNBase):
         pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})
         
         episode = 0
-        learning_steps = 0
         start_time = time.time()
 
         for global_step in pbar:
-            if global_step < self.learning_starts:
-                action = np.random.choice(self.action_space.n)
-            else:
-                action = self.choose_action(obs)
+            # Choose an action and decay epsilon if needed
+            action = self.choose_action(obs)
             if not self.use_noisy_net: self.decay_epsilon()
+
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
@@ -330,8 +326,7 @@ class AgentDQN(DQNBase):
             
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
                 self.learn()
-                learning_steps += 1
-                if self.should_update_target(learning_steps):
+                if self.should_update_target(self.learning_step_count):
                     self.update_target_network()   
 
             if done:

@@ -5,21 +5,21 @@ DEFAULT_ATARI_PARAMS = {
     "max_steps": int(5e6), # Total number of steps to train
     "gamma": 0.99,          
     "memory_size": int(1e6), # Replay or PER total size
-    "learning_starts": 2e4, # How much to samples to gather before the learning starts
+    "learning_starts": 8e4, # How much to samples to gather before the learning starts, per RAINBOW paper
     "batch_size": 32, # How many samples to use for gradient update, same as in Nature paper
     "lr": 6.25e-5, # Learning rate, same as in RAINBOW paper
-    "learning_freq": 4, # How many k-steps to update weights, same as in Nature paper
+    "learning_freq": 1, # How many k-steps to update weights, same as in Nature paper
     "hidden_dim": 512, # Network width, same as in Nature paper
     # ----- TARGET NETWORK UPDATE PARAMS -----
-    "hard_target_update": False, # Use either hard or soft update, RAINBOW uses hard
-    "target_update_freq": 8000, # RAINBOW paper
+    "hard_target_update": True, # Use either hard or soft update, RAINBOW uses hard
+    "target_update_freq": 32000, # RAINBOW paper uses 32k frames, but it has to be scaled accordingly to learning_freq
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
     "epsilon_decay_steps": int(1e6), # Total number of steps to decay linearly epsilon from max to min, same as in Nature paper
     "max_epsilon": 1, # Initial epsilon, same as in Nature paper
     "min_epsilon": 0.1, # Final epsilon, same as in Nature paper
     # ----- PRIORITIZED EXPERIENCE REPLAY PARAMS ----
-    "alpha": 0.7, # Alpha of PER, RAINBOW paper
+    "alpha": 0.5, # Alpha of PER, RAINBOW paper
     "beta_start": 0.4, # Starting Beta of PER
     "beta_final": 1, # Final Beta of PER
     "beta_increase_steps": int(1e6), # Total number of steps to increase beta from start to end
@@ -31,7 +31,7 @@ DEFAULT_ATARI_PARAMS = {
     "v_max": 10,   # Maximum value of support, RAINBOW
     # ---------- NOISY NET PARAMS -----
     "noisy_net": True, # In Atari envs noisy-nets are better than epsilon-greedy
-    "noise_std": 0.2,  # Standard deviation for noise initialization
+    "noise_std": 0.5,  # Standard deviation for noise initialization, per RAINBOW paper
 }
 
 DEFAULT_CLASSIC_PARAMS = {
