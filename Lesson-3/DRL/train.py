@@ -117,7 +117,7 @@ def main(args):
         # Re-create the figure from the final data and show it.
         final_fig = get_figure(all_rewards=all_rewards, 
                              solved_threshold=env_config.get("solved_reward", 100),
-                             window_size=50)
+                             window_size=100)
         plt.show()
 
 if __name__=='__main__':

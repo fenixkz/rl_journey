@@ -305,7 +305,7 @@ class AgentDQN(DQNBase):
                 action = np.random.choice(self.action_space.n)
             else:
                 action = self.choose_action(obs)
-            # No epsilon decay here, because e-greedy is not used
+            if not self.use_noisy_net: self.decay_epsilon()
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
@@ -356,6 +356,8 @@ class AgentDQN(DQNBase):
                 obs = next_obs
             # Log out the metrics
             postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A", "eps": f"{self.epsilon:.3f}"}
+            if self.use_noisy_net: 
+                postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A"}
             pbar.set_postfix(postfix)
             
             if timeout is not None and time.time() - start_time > timeout*60:
