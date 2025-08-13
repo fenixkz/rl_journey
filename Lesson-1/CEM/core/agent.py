@@ -148,15 +148,21 @@ class CEMAgent(BaseAgent):
         Returns:
             float: The computed loss value after the training step.
         """
-        # Convert to tensors
-        obs_tensor = torch.tensor(observations, dtype=torch.float32).to(self.device)
+        # 1. Convert observations and actions to tensors, they are already batched
+        observations_tensor = torch.tensor(observations, dtype=torch.float32).to(self.device)
         actions_tensor = torch.tensor(actions, dtype=torch.long).to(self.device)
-        # Get predictions
-        pred_actions = self.policy.forward(obs_tensor)
-        # Backward pass
+
+        # 2. Pass observations and get raw logits
+        pred_actions = self.policy.forward(observations_tensor)
+
+        # 3. Do a backward pass
+        # 3.1. First always zero out the gradients
         self.optimizer.zero_grad()
-        loss = self.loss(pred_actions, actions_tensor)
+        # 3.2. Calculate cross-entropy loss (softmax applied internally)
+        loss: torch.Tensor = self.loss(pred_actions, actions_tensor)
+        # 3.3 Backpropogate the loss
         loss.backward()
+        # 3.4. Update the weights
         self.optimizer.step()
         return loss.item()
 
@@ -218,6 +224,7 @@ class CEMAgent(BaseAgent):
         """
         if env is None:
             env = self.env
+
         # Get initial observation, note no seed is needed as it was seeded in the base class
         observation, _ = env.reset()
         # A list to store the history of (state, action) tuples
