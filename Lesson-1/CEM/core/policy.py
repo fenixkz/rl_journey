@@ -8,7 +8,7 @@ class FCNetwork(nn.Module):
     Given the state, returns the probability distribution over actions.
     """
 
-    def __init__(self, obs_space, action_space, hidden_space: int = 128):
+    def __init__(self, obs_space: int, action_space: int, hidden_space: int, device: str):
         super(FCNetwork, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(obs_space, hidden_space),
@@ -18,6 +18,7 @@ class FCNetwork(nn.Module):
             nn.Linear(hidden_space // 2, action_space),
         )
         self._init_weights()
+        self.device = device
 
     def forward(self, observation: torch.Tensor):
         return self.network(observation)
