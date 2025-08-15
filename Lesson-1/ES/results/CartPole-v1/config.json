@@ -1,0 +1,14 @@
+{
+    "training_generations": 1000,
+    "population_size": 50,
+    "noise_std": 0.1,
+    "hidden_dim": 64,
+    "learning_rate": 0.001,
+    "use_vbn": false,
+    "vbn_batch_size": 128,
+    "l2_coeff": 0.001,
+    "normalization_mode": "rank",
+    "action_noise": 0,
+    "evaluation_period": 100,
+    "evaluation_episodes": 50
+}
