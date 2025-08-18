@@ -1,3 +1,5 @@
 __pycache__/
 *.pth
-DRL-v2/
+ppo_clipping_test.py
+connect4.py
+Lesson-1/ES/migration_plan.md
