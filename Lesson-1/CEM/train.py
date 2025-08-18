@@ -14,9 +14,7 @@ sys.path.append(os.path.abspath(parent_path))
 
 from core.agent import CEMAgent  # noqa: E402
 
-from common.utils.classic_config import CLASSIC_ENV_CONFIG  # noqa: E402
-from common.utils.config_utils import save_as_json  # noqa: E402
-from common.utils.plot_utils import get_figure  # noqa: E402
+from common.utils.config_utils import get_env_config  # noqa: E402
 
 
 def parse_args():
@@ -34,45 +32,22 @@ def parse_args():
     return args
 
 
-def get_env_config(env_name: str) -> dict:
-    """
-    Retrieves the configuration for a given environment  name.
-
-    Args:
-        env_name: The short name of the environment (e.g., "pong").
-
-    Returns:
-        A dictionary containing the environment's configuration.
-
-    Raises:
-        ValueError: If the short name is not found in the configs.
-    """
-
-    if env_name.lower() in CLASSIC_ENV_CONFIG:
-        return CLASSIC_ENV_CONFIG[env_name.lower()]
-
-    raise ValueError(
-        f"Unknown environment: '{env_name}'. " f"Available environments: {list(CLASSIC_ENV_CONFIG.keys())}"
-    )
-
-
 def main(args):
 
     # --- Parse args  ---
     env_name = args.env
     seed = args.seed
-    visulize = args.visualize
+    visualize = args.visualize
 
     # Get the config for that specific env
-    env_config = get_env_config(env_name=env_name)
+    env_config = get_env_config(env_name=env_name, include_atari=False)
     env_id = env_config["env_id"]
 
     # --- Parse hyperparameters ---
     config = CEM_CONFIG
     # Total number of learning steps
     training_epochs = config.get("training_epochs", 100)
-    # Number of episodes to play
-    # for elite filtering
+    # Number of episodes to play for elite filtering
     num_episodes = config.get("num_episodes", 50)
     # Percentile of elite samples to filter
     percentile = config.get("percentile", 60)
@@ -82,18 +57,20 @@ def main(args):
     learning_rate = config.get("lr", 1e-3)
     # Add seed as hyperparam to config
     config["seed"] = seed
+    # A reward after which the env is considered solved
+    solved_threshold = env_config["solved_reward"]
 
     # --- Create the agent ---
     agent = CEMAgent(
         env_id=env_id,
-        solved_threshold=env_config["solved_reward"],
+        solved_threshold=solved_threshold,
         hidden_dim=hidden_dim,
         lr=learning_rate,
         seed=seed,
     )
 
     # --- Visualization: Untrained Policy ---
-    if visulize:
+    if visualize:
         # Create a similar env but that can visualize the environment using display
         human_env = gym.make(env_id, render_mode="human")
 
@@ -101,49 +78,19 @@ def main(args):
         pprint(f"Total reward achieved by untrained policy [bold red]: {total_reward}")
         human_env.close()
 
-    # Initialize a list of all reward for plotting it later
-    all_rewards = []
-
-    # Path where to save the progress
+    # 1. Create a directory for future results
     save_path = f"results/{env_id}"
     os.makedirs(save_path, exist_ok=True)
-
-    # Function to save the progress
-    def save_progress():
-        """A non-interactive function to save model and plot to file."""
-        pprint("\nSaving model and plotting results to file...")
-        # 1. Save the agent's policy
-        agent.save(save_path)
-
-        # 2. Save config
-
-        save_as_json(save_dir=save_path, config=config)
-
-        # 3. Save the plot of rewards
-        if all_rewards:
-            fig = get_figure(
-                all_rewards=all_rewards,
-                solved_threshold=env_config["solved_reward"],
-                window_size=num_episodes,
-            )
-            pprint("Generated the figure")
-            save_file_path = os.path.join(save_path, "rewards.jpg")
-            try:
-                fig.savefig(save_file_path)
-                pprint(f"Plot saved to {save_file_path}")
-            except Exception as e:
-                pprint(f"Could not save plot: {e}")
-            finally:
-                plt.close(fig)
 
     console = Console()
     title = f":rocket: :rocket: :rocket: [bold red] Training {env_id} with CEM [/bold red] :rocket: :rocket: :rocket:"
     console.print(title, justify="center")
 
+    # 2. Train the agent
     training_completed_successfully = False
     try:
+        # Start training
         agent.train(
-            all_rewards=all_rewards,
             num_epochs=training_epochs,
             num_episodes=num_episodes,
             percentile=percentile,
@@ -152,14 +99,14 @@ def main(args):
     except KeyboardInterrupt:
         print("\nTraining interrupted by user (Ctrl+C).")
     finally:
-        # This block will execute on normal completion, Ctrl+C, or a different error.
-        save_progress()
+        # This will be executed no matter what
+        agent.save_progress(save_path=save_path, config=config)
 
-    # Evaluate policy: use deterministic actions
-    print("\nEvaluating trained policy...")
+    # 3. Evaluate trained policy
+    pprint("[green] Evaluating trained policy...")
 
     # --- Visualization: Trained Policy ---
-    if visulize:
+    if visualize:
         human_env = gym.make(
             env_id, render_mode="human"
         )  # Create a similar env, but that can visualize the environment using display
@@ -173,11 +120,7 @@ def main(args):
     if training_completed_successfully:
         pprint("Training completed successfully. Displaying final plot.")
         # Re-create the figure from the final data and show it.
-        _ = get_figure(
-            all_rewards=all_rewards,
-            solved_threshold=env_config["solved_reward"],
-            window_size=num_episodes,
-        )
+        _ = agent.get_figure()
         plt.show()
 
 

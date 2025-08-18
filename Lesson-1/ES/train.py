@@ -14,8 +14,6 @@ parent_path = os.path.join(current_path, "../../")
 sys.path.append(os.path.abspath(parent_path))
 
 from common.utils.config_utils import get_env_config  # noqa: E402
-from common.utils.general_utils import save_progress  # noqa: E402
-from common.utils.plot_utils import get_figure  # noqa: E402
 
 
 def parse_args():
@@ -108,26 +106,13 @@ def main(args):
         print("\nTraining interrupted by user (Ctrl+C).")
     finally:
         # This block will execute on normal completion, Ctrl+C, or a different error.
-        save_progress(
-            agent=agent,
-            save_path=save_path,
-            config=config,
-            train_rewards=train_rewards,
-            window_size=100,
-            solved_threshold=solved_threshold,
-            eval_rewards=eval_rewards,
-        )
+        agent.save_progress(save_path=save_path, config=config)
 
     # --- Display the Plot (Only on Normal Completion) ---
     if training_completed_successfully:
         pprint("Training completed successfully. Displaying final plot.")
         # Re-create the figure from the final data and show it.
-        _ = get_figure(
-            train_rewards=train_rewards,
-            solved_threshold=env_config["solved_reward"],
-            window_size=population_size,
-            eval_rewards=eval_rewards,
-        )
+        _ = agent.get_figure()
         plt.show()
 
 

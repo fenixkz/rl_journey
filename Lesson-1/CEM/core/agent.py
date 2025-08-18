@@ -39,11 +39,15 @@ class CEMAgent(BaseAgent):
         Raises:
             AssertionError: If the environment has non-discrete action space.
         """
+
         # Create the environment using gymnasium
         env = gym.make(env_id)
         assert isinstance(
             env.action_space, gym.spaces.Discrete
         ), "Detected non-discrete action space, this class works only with discrete action space problems!"
+        assert (
+            len(env.observation_space.shape) > 1
+        ), "Detected non-vector environment, Cross-Entropy Agent only works with Vector Envs"
 
         # Create the base agent
         super().__init__(env=env, solved_threshold=solved_threshold, seed=seed)
@@ -252,7 +256,7 @@ class CEMAgent(BaseAgent):
             total_reward += reward
         return history, total_reward
 
-    def train(self, all_rewards: List, num_epochs: int, num_episodes: int, percentile: float):
+    def train(self, num_epochs: int, num_episodes: int, percentile: float):
         """
         Train the agent using the Cross-Entropy Method (CEM).
 
@@ -263,8 +267,6 @@ class CEMAgent(BaseAgent):
         is achieved.
 
         Args:
-            all_rewards (List): List to store all episode rewards for tracking progress.
-                This list is modified in-place during training.
             num_epochs (int): Maximum number of training epochs to run.
             num_episodes (int): Number of episodes to collect data from in each epoch.
             percentile (float): Percentile threshold for selecting elite episodes.
@@ -287,7 +289,7 @@ class CEMAgent(BaseAgent):
                 history, total_reward = self.play_one_episode()
 
                 # Append to the external list total reward
-                all_rewards.append(total_reward)
+                self.train_rewards.append(total_reward)
 
                 # Extract observations and actions from history
                 episode_observations = [step[0] for step in history]

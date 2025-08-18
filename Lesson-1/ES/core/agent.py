@@ -3,7 +3,7 @@ import os
 import sys
 from copy import copy
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 import gymnasium as gym
 import numpy as np
@@ -341,7 +341,7 @@ class ESAgent(BaseAgent):
 
         return rewards
 
-    def train(self, train_rewards: List, num_epochs: int, population_size: int, eval_rewards: List):
+    def train(self, num_epochs: int, population_size: int):
         """
         Execute the main Evolution Strategies training algorithm with antithetic sampling.
 
@@ -417,7 +417,7 @@ class ESAgent(BaseAgent):
                     rewards = pool.map(evaluate_mutant, tasks)
 
                 # Populate the external list for plotting purposes
-                train_rewards.extend(rewards)
+                self.train_rewards.extend(rewards)
                 # Cast to np.array for better calculations
                 rewards = np.array(rewards)
             else:
@@ -438,7 +438,7 @@ class ESAgent(BaseAgent):
                     sequential_rewards.append(reward_minus)
 
                 # Populate the external list for plotting purposes
-                train_rewards.extend(sequential_rewards)
+                self.train_rewards.extend(sequential_rewards)
                 # Cast to np.array for better calculations
                 rewards = np.array(sequential_rewards)
                 # Set the central weights back to its original value
@@ -507,7 +507,7 @@ class ESAgent(BaseAgent):
                 eval_rewards_ = [self.play_one_episode() for _ in range(self.evaluation_episodes)]
                 mean_eval_rewards = np.mean(eval_rewards_)
                 # Add to the external list
-                eval_rewards.append(mean_eval_rewards)
+                self.val_rewards.append(mean_eval_rewards)
             pbar.set_postfix_str(f"Train mean: {mean_reward:.2f} Eval mean: {mean_eval_rewards:.2f}")
 
             # Check for early termination
