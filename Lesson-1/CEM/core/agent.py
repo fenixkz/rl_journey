@@ -46,7 +46,7 @@ class CEMAgent(BaseAgent):
             env.action_space, gym.spaces.Discrete
         ), "Detected non-discrete action space, this class works only with discrete action space problems!"
         assert (
-            len(env.observation_space.shape) > 1
+            len(env.observation_space.shape) == 1
         ), "Detected non-vector environment, Cross-Entropy Agent only works with Vector Envs"
 
         # Create the base agent

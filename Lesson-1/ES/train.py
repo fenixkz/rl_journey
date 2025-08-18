@@ -91,15 +91,10 @@ def main(args):
 
     training_completed_successfully = False
     try:
-        # A collection of rewards for future plot
-        train_rewards, eval_rewards = [], []
-
         # Start training
         agent.train(
-            train_rewards=train_rewards,
             num_epochs=training_generations,
             population_size=population_size,
-            eval_rewards=eval_rewards,
         )
         training_completed_successfully = True
     except KeyboardInterrupt:

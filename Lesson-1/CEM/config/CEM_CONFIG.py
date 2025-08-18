@@ -2,7 +2,7 @@ CEM_CONFIG = {
     "training_epochs": 500,
     "num_episodes": 50,
     "percentile": 70,
-    "hidden_dim": 256,
+    "hidden_dim": 64,
     "lr": 1e-3,
 }
 
