@@ -3,7 +3,7 @@ ES_CONFIG = {
     "population_size": 24,
     "noise_std": 0.1,
     "hidden_dim": 128,
-    "learning_rate": 3e-4,
+    "learning_rate": 1e-3,
     "use_vbn": False,
     "vbn_batch_size": 128,
     "l2_coeff": 1e-3,
