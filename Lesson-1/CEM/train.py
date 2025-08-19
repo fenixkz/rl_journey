@@ -87,7 +87,6 @@ def main(args):
     console.print(title, justify="center")
 
     # 2. Train the agent
-    training_completed_successfully = False
     try:
         # Start training
         agent.train(
@@ -95,11 +94,15 @@ def main(args):
             num_episodes=num_episodes,
             percentile=percentile,
         )
-        training_completed_successfully = True
+        pprint("Training completed successfully. Displaying final plot.")
+        # Create the figure from the final data and show it
+        _ = agent.get_figure()
+        plt.show()
     except KeyboardInterrupt:
         print("\nTraining interrupted by user (Ctrl+C).")
     finally:
-        # This will be executed no matter what
+        # Save everything even if the process was killed
+        # before the training completed
         agent.save_progress(save_path=save_path, config=config)
 
     # 3. Evaluate trained policy
@@ -115,13 +118,6 @@ def main(args):
         pprint(f"Total reward achieved by trained policy [bold green]: {total_reward}")
         human_env.close()
     # --- End of visualization
-
-    # --- Display the Plot (Only on Normal Completion) ---
-    if training_completed_successfully:
-        pprint("Training completed successfully. Displaying final plot.")
-        # Re-create the figure from the final data and show it.
-        _ = agent.get_figure()
-        plt.show()
 
 
 if __name__ == "__main__":

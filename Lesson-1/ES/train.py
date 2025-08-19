@@ -89,26 +89,20 @@ def main(args):
     title = f":rocket: :rocket: :rocket: [bold red] Training {env_id} with ES [/bold red] :rocket: :rocket: :rocket:"
     console.print(title, justify="center")
 
-    training_completed_successfully = False
     try:
         # Start training
         agent.train(
             num_epochs=training_generations,
             population_size=population_size,
         )
-        training_completed_successfully = True
+        pprint("Training completed successfully. Displaying final plot.")
+        # Create the figure from the final data and show it
+        _ = agent.get_figure()
+        plt.show()
     except KeyboardInterrupt:
         print("\nTraining interrupted by user (Ctrl+C).")
     finally:
-        # This block will execute on normal completion, Ctrl+C, or a different error.
         agent.save_progress(save_path=save_path, config=config)
-
-    # --- Display the Plot (Only on Normal Completion) ---
-    if training_completed_successfully:
-        pprint("Training completed successfully. Displaying final plot.")
-        # Re-create the figure from the final data and show it.
-        _ = agent.get_figure()
-        plt.show()
 
 
 if __name__ == "__main__":
