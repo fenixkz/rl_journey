@@ -1,0 +1,12 @@
+{
+    "gamma": 0.99,
+    "alpha": 0.1,
+    "num_episodes": 50000.0,
+    "start_epsilon": 1.0,
+    "min_epsilon": 0.05,
+    "decay_episodes": 20000.0,
+    "num_bins": 200,
+    "evaluation_period": 1000,
+    "evaluation_episodes": 50,
+    "seed": 224
+}
