@@ -8,37 +8,43 @@ env = gym.make("FrozenLake-v1", desc=None, map_name="8x8", is_slippery=True)
 n_states = env.observation_space.n
 # Get number of possible actions (4)
 n_actions = env.action_space.n
-# A unwrapper to get transition probabilities
+# Unwrap the env to get transition probabilities
 base_env = env.unwrapped
 # Get a matrix of transition probabilities
 transition_prob = base_env.P
 # Initialize a dictionary that hold a state-value for each state
-state_values = {s: 0 for s in range(n_states)} # V*(s) for all s in S, initialized as 0 in the beginning
-gamma = 0.9 # Discount factor
+# V*(s) for all s in S, initialized as 0 in the beginning
+state_values = {s: 0 for s in range(n_states)}
+# Discount factor
+gamma = 0.9
+
 
 def get_Q(state, action):
-    '''
+    """
     A function to compute the Q*(s,a)
-    '''
+    """
     Q = 0
     # Per formula in theory.md
     for prob, next_state, reward, _ in transition_prob[state][action]:
         Q += prob * (reward + gamma * state_values[next_state])
     return Q
 
+
 def compute_V(state):
-    '''
+    """
     A function to compute V*(s)
-    '''
+    """
     # Per formula in theory.md
     return max(get_Q(state, action) for action in range(n_actions))
-    
+
+
 def choose_action(state):
-    '''
+    """
     A function to choose the action that maximizes the Q*(s,a)
-    '''
+    """
     # Chooses the best action that corresponds to the highest Q value
     return max(range(n_actions), key=lambda action: get_Q(state, action))
+
 
 # Total number of iterations to perform
 num_iter = 100
@@ -54,19 +60,19 @@ for i in range(num_iter):
         break
 
 n_episodes = 100
-n_steps = 50
+n_steps = 200
 # Play the episode with our estimates of values
 rewards = []
 for i in range(n_episodes):
-    s, _ = env.reset()
-    reward_per_episode = 0
+    state, _ = env.reset()
+    total_reward = 0
     for j in range(n_steps):
-        a = choose_action(s)
-        nS, r, done, _, _ = env.step(a)
-        s = nS
-        reward_per_episode += r
-        if done:
+        action = choose_action(state)
+        next_state, reward, terminated, truncated, _ = env.step(action)
+        state = next_state
+        total_reward += reward
+        if terminated or truncated:
             break
-    rewards.append(reward_per_episode)
+    rewards.append(total_reward)
 
 print(f"Average reward per {n_episodes} is {np.mean(rewards)}")
