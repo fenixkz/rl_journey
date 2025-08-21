@@ -12,7 +12,7 @@ DEFAULT_ATARI_PARAMS = {
     "lr": 6.25e-5,  # Learning rate, same as in RAINBOW paper
     "learning_freq": 1,  # How many k-steps to update weights, same as in Nature paper
     "hidden_dim": 512,  # Network width, same as in Nature paper
-    "evaluation_period": 5000,  # How often to evaluate (in episodes)
+    "evaluation_period": 1000,  # How often to evaluate (in episodes)
     "evaluation_episodes": 10,  # How many episodes to play in evaluation
     # ----- TARGET NETWORK UPDATE PARAMS -----
     "hard_target_update": True,  # Use either hard or soft update, RAINBOW uses hard
