@@ -27,6 +27,16 @@ class AgentDQN(DQNBase):
         self.name = "DQN"
 
     def learn(self):
+        """
+        A traditional DQN update rule:
+
+        1. Sample a batch (s, a, r, s') from replay buffer
+        2. Calculate Q-value per (s, a) pair in the batch using online network
+        3. Using target network find max_a Q(s', a)
+        4. Calculate TD target as: r + gamma * max_a Q(s', a)
+        5. Compute L2 loss
+        6. Backpropogate
+        """
         # 1. Sample a batch of experience from replay buffer
         states, actions, rewards, next_states, dones = self.memory.sample(self.batch_size)
 
@@ -56,8 +66,7 @@ class AgentDQN(DQNBase):
             # Multiply by (1 - done) so target is just 'r' if next_state is terminal
             td_target = rewards + self.gamma * next_max_q * (1 - dones)
 
-        # 6. Calculate loss using Huber Loss (Smooth L1 Loss)
-        # This correctly implements the TD-error clipping from the Nature paper.
+        # 6. Calculate loss using L2 loss
         loss = F.mse_loss(actual_q_values, td_target)
 
         # 7. Perform Gradient Descent Step
@@ -72,7 +81,7 @@ class AgentDQN(DQNBase):
         if self.is_atari:
             obs = self.auto_fire()
 
-        pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})
+        pbar = tqdm(range(max_steps), desc="Training")
 
         episode = 0
         learning_steps = 0

@@ -27,6 +27,17 @@ class AgentDQN(DQNBase):
         self.name = "DDQN"
 
     def learn(self):
+        """
+        Double DQN update rule:
+
+        1. Sample a batch (s, a, r, s') from replay buffer
+        2. Calculate Q-value per (s, a) pair in the batch using online network
+        3. Using online network find the next best action a' = argmax_a Q(s', a)
+        4. Using target network find Q(s', a')
+        5. Calculate TD target as: r + gamma * Q(s', a')
+        6. Compute L2 loss
+        7. Backpropogate
+        """
         # 1. Sample a batch of experience from replay buffer
         states, actions, rewards, next_states, dones = self.memory.sample(self.batch_size)
 
@@ -77,7 +88,7 @@ class AgentDQN(DQNBase):
         if self.is_atari:
             obs = self.auto_fire()
 
-        pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})
+        pbar = tqdm(range(max_steps), desc="Training")
 
         episode = 0
         learning_steps = 0

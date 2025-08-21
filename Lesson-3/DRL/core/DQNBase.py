@@ -86,9 +86,9 @@ class DQNBase(BaseAgent):
         # --------- POLICY ---------
         if not is_atari:
             print(
-                f"Detected a classic (vector) environment, \
-                observation space shape: {self.observation_space.shape}, \
-                using Fully Connected (FC) Network"
+                f"Detected a classic (vector) environment,"
+                f"observation space shape: {self.observation_space.shape},"
+                f"using Fully Connected (FC) Network"
             )
             if agent_config.dueling:
                 self.online_model = DuelingFC(
@@ -106,9 +106,9 @@ class DQNBase(BaseAgent):
                 ).to(self.device)
         else:
             print(
-                f"Detected an Atari environment, \
-                observation space shape: {self.observation_space.shape}, \
-                using Convolutional Neural Network (CNN)"
+                f"Detected an Atari environment,"
+                f"observation space shape: {self.observation_space.shape},"
+                f"using Convolutional Neural Network (CNN)"
             )
             if agent_config.dueling:
                 self.online_model = DuelingCNN(

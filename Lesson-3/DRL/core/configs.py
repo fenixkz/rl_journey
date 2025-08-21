@@ -44,17 +44,17 @@ DEFAULT_CLASSIC_PARAMS = {
     # ----- COMMON PARAMS -----
     "max_steps": int(5e6),  # Increased for better convergence
     "gamma": 0.99,
-    "memory_size": int(5e4),  # Use smaller size to dicard old samples because they can be harmful
+    "memory_size": int(2e4),  # Use smaller size to dicard old samples because they can be harmful
     "learning_starts": int(1e3),  # No need to wait long
     "batch_size": 128,  # Larger batch size for more stable gradients
-    "lr": 1e-4,  # We can use a higher lr
+    "lr": 3e-4,  # We can use a higher lr
     "learning_freq": 1,  # Box2D envs are fast, so no need to skip
     "hidden_dim": 64,  # Common value for small problems
     "evaluation_period": 100,  # How often to evaluate (in episodes)
     "evaluation_episodes": 10,  # How many episodes to play in evaluation
     # ----- TARGET NETWORK UPDATE PARAMS -----
     "hard_target_update": True,  # Use either hard or soft update
-    "target_update_freq": 8000,  # We can update much faster
+    "target_update_freq": 10000,  # We can update much faster
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
     "epsilon_decay_steps": int(2e4),  # Quick exploration
@@ -69,8 +69,8 @@ DEFAULT_CLASSIC_PARAMS = {
     "n_step_return": 3,
     # ----- DISTRIBUTIONAL PARAMS -----
     "n_atoms": 51,  # Number of atoms in the distribution
-    "v_min": -20,  # Minimum value of support
-    "v_max": 20,  # Maximum value of support
+    "v_min": -10,  # Minimum value of support
+    "v_max": 10,  # Maximum value of support
     # ---------- NOISY NET PARAMS -----
     "noisy_net": False,  # In Box2D envs epsilon-greedy performs better in my practice
     "noise_std": 0.2,  # Standard deviation for noise initialization

@@ -82,8 +82,10 @@ def main(args):
     os.makedirs(save_path, exist_ok=True)
 
     console = Console()
-    title = f":rocket: :rocket: :rocket: [bold red] Training {env_id} with {agent.get_name()} [/bold red] \
-              :rocket: :rocket: :rocket:"
+    title = (
+        f":rocket: :rocket: :rocket: [bold red] Training {env_id} "
+        f"with {agent.get_name()} [/bold red] :rocket: :rocket: :rocket:"
+    )
     console.print(title, justify="center")
     title = f"[bold yellow] Using the following config [/bold yellow]: \n {agent_config}"
     console.print(title, justify="left")

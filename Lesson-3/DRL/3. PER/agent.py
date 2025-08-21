@@ -34,15 +34,16 @@ class AgentDQN(DQNBase):
 
     def learn(self):
         """
-        Implements learning with Prioritized Experience Replay (PER).
+        Prioritized Experience Replay with Double DQN update rule:
 
-        PER improves sample efficiency by preferentially sampling experiences
-        with higher TD-errors (more surprising/informative experiences).
-
-        Key differences from uniform sampling:
-        1. Sample experiences based on priority (TD-error magnitude)
-        2. Use importance sampling weights to correct for sampling bias
-        3. Update priorities after computing new TD-errors
+        1. Sample a batch (s, a, r, s', w, i) according to their probabilities
+        2. Calculate Q-value per (s, a) pair in the batch using online network
+        3. Using online network find the next best action a' = argmax_a Q(s', a)
+        4. Using target network find Q(s', a')
+        5. Calculate TD target as: r + gamma * Q(s', a')
+        6. Compute L2 loss weigthed by IS weights (w)
+        7. Backpropogate
+        8. Assing new priorities as Q(s,a) - TD target to the samples_i
         """
 
         # Anneal beta (importance sampling correction) from beta_start to beta_end over training
@@ -100,7 +101,8 @@ class AgentDQN(DQNBase):
         # 8. Perform Gradient Descent Step
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=5.0)
+        # Reduce max norm for better stability
+        torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         # 9. Update priorities in the PER based on new TD-errors
@@ -120,7 +122,6 @@ class AgentDQN(DQNBase):
         pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})
 
         episode = 0
-        learning_steps = 0
         start_time = time.time()
         val_mean_reward = -float("inf")
         train_mean_reward = -float("inf")
@@ -137,8 +138,7 @@ class AgentDQN(DQNBase):
 
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
                 self.learn()
-                learning_steps += 1
-                if self.should_update_target(learning_steps):
+                if self.should_update_target(self.step_count):
                     self.update_target_network()
 
             if done:

@@ -1,35 +1,29 @@
-import os
-import sys
+import time
+
 import gymnasium as gym
 import numpy as np
-from tqdm import tqdm
 import torch
 import torch.nn.functional as F
-from typing import List, Dict
-from collections import deque
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
-from core.DQNBase import DQNBase
 from core.configs import AgentConfig
-import time
-from rich import print as pprint
+from core.DQNBase import DQNBase
+from tqdm import tqdm
+
 
 class AgentDQN(DQNBase):
-    '''
-    Dueling-DQN algorithm with Prioritized Experience Replay and Double DQN update rule.
-    '''
-    def __init__(self, env: gym.Env, agent_config: AgentConfig, env_config: Dict, is_atari: bool):
+    """
+    N-step Dueling-DQN algorithm with Prioritized Experience Replay and Double DQN update rule.
+    """
+
+    def __init__(self, env: gym.Env, agent_config: AgentConfig, solved_threshold: float, is_atari: bool):
 
         # Overwrite some specific params
         agent_config.memory = "per"
-        agent_config.dueling = True 
-        agent_config.hard_target_update = True
-        agent_config.memory_size = max(100000, agent_config.memory_size)   # For PER we need a bigger buffer  
+        agent_config.dueling = True
 
         # Initialize the parent class
-        super().__init__(env, agent_config, is_atari)
-
+        super().__init__(env, agent_config, is_atari, solved_threshold)
         self.name = "N-Step-DQN"
-        self.solved_reward = env_config['solved_reward']
+
         # ---------- PER PARAMS ------------
         self.beta_start = agent_config.beta_start
         self.beta_end = agent_config.beta_final
@@ -39,26 +33,29 @@ class AgentDQN(DQNBase):
 
     def learn(self):
         """
-        Implements learning with Prioritized Experience Replay (PER).
-        
-        PER improves sample efficiency by preferentially sampling experiences
-        with higher TD-errors (more surprising/informative experiences).
-        
-        Key differences from uniform sampling:
-        1. Sample experiences based on priority (TD-error magnitude)
-        2. Use importance sampling weights to correct for sampling bias
-        3. Update priorities after computing new TD-errors
+        N-step Dueling DQN with PER and Double DQN update rule:
+
+        1. Sample a batch (s, a, G_n, s', w, i, n) according to their probabilities
+        2. Calculate Q-value per (s, a) pair in the batch using online network
+        3. Using online network find the next best action a' = argmax_a Q(s', a)
+        4. Using target network find Q(s', a')
+        5. Calculate TD target as: G_n + gamma^n * Q(s', a')
+        6. Compute L2 loss weigthed by IS weights (w)
+        7. Backpropogate
+        8. Assing new priorities as Q(s,a) - TD target to the samples_i
         """
-            
+
         # Anneal beta (importance sampling correction) from beta_start to beta_end over training
         # Beta controls how much we correct for the bias introduced by prioritized sampling
         progress = min(self.step_count / self.beta_increase_steps, 1.0)  # Normalize step count
         self.current_beta = self.beta_start + (self.beta_end - self.beta_start) * progress
-        
+
         # 1. Sample a batch of prioritized experiences from PER buffer
         # Unlike uniform sampling, this returns additional weights and indices
-        states, actions, rewards, next_states, dones, ns, weights, indices = self.memory.sample(self.batch_size, self.current_beta)
-        
+        states, actions, rewards, next_states, dones, ns, weights, indices = self.memory.sample(
+            self.batch_size, self.current_beta
+        )
+
         # 2. Cast np.arrays into torch.Tensors
         states = torch.FloatTensor(states).to(self.device)
         actions = torch.LongTensor(actions).to(self.device)
@@ -66,24 +63,24 @@ class AgentDQN(DQNBase):
         next_states = torch.FloatTensor(next_states).to(self.device)
         dones = torch.FloatTensor(dones).to(self.device)
         weights = torch.FloatTensor(weights).to(self.device)  # Importance sampling weights
-        ns = torch.LongTensor(ns).to(self.device) # Number of steps for n-step return
+        ns = torch.LongTensor(ns).to(self.device)  # Number of steps for n-step return
 
         # 3. Calculate Q(s,a) for all states in the batch and all possible actions
         q_values: torch.Tensor = self.online_model(states)
-        
+
         # 4. Use gather to select the Q-value for the specific actions in the batch
         actual_q_values = q_values.gather(1, actions.unsqueeze(-1)).squeeze(-1)
-        
+
         # 5. Calculate TD-target using Double DQN
         with torch.no_grad():
             # --- DDQN Update Rule ---
             # Use online network to select actions, target network to evaluate them
             # This reduces overestimation bias compared to vanilla DQN
-            
+
             # 1. Use online model to find the indexes of the best action in the next states
             online_next_q = self.online_model(next_states)  # Shape: [batch_size, action_space.n]
             next_best_actions = torch.argmax(online_next_q, dim=1)  # Shape: [batch_size]
-            
+
             # 2. Evaluate Q-values for the next states using target network
             target_new_q: torch.Tensor = self.target_model(next_states)  # Shape: [batch_size, action_space.n]
             target_q = target_new_q.gather(1, next_best_actions.unsqueeze(-1)).squeeze(-1)  # Shape: [batch_size]
@@ -96,9 +93,9 @@ class AgentDQN(DQNBase):
         # 6. Calculate TD-errors for updating priorities
         # TD-error measures how "surprising" or informative each experience is
         td_errors = torch.abs(actual_q_values - td_target)
-        
+
         # 7. Apply importance sampling weights to correct for prioritized sampling bias
-        weighted_loss = weights * F.mse_loss(actual_q_values, td_target, reduction='none')
+        weighted_loss = weights * F.mse_loss(actual_q_values, td_target, reduction="none")
         loss = weighted_loss.mean()
 
         # 8. Perform Gradient Descent Step
@@ -106,28 +103,27 @@ class AgentDQN(DQNBase):
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=5.0)
         self.optimizer.step()
-        
+
         # 9. Update priorities in the PER based on new TD-errors
         # Higher TD-error → higher priority → more likely to be sampled in future
         # Add small epsilon to prevent zero priorities
         new_priorities = td_errors.detach().cpu().numpy() + 1e-6
         self.memory.update_priorities(indices, new_priorities)
-        
+
         # Increment step counter for beta annealing
         self.step_count += 1
 
-    def train(self, all_rewards: List, max_steps: int = 100000, timeout: float = None):
-        rewards_log = deque(maxlen=100)
-        
+    def train(self, max_steps: int = 100000, timeout: float = None):
         obs, _ = self.env.reset()
-        if self.is_atari: obs = self.auto_fire()
+        if self.is_atari:
+            obs = self.auto_fire()
 
-        pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})
-        
+        pbar = tqdm(range(max_steps), desc="Training")
+
         episode = 0
-        learning_steps = 0
         start_time = time.time()
-
+        val_mean_reward = -float("inf")
+        train_mean_reward = -float("inf")
         for global_step in pbar:
             action = self.choose_action(obs)
             self.decay_epsilon()
@@ -143,7 +139,7 @@ class AgentDQN(DQNBase):
             # - n -- number of actual steps that were taken (because the agent can end the episode in steps less than N)
             # So, add a single experience tuple into a separate buffer for futher post-processing
             self.n_step_buffer.append((obs, action, clipped_reward, next_obs, terminated))
-            
+
             # If the buffer has enough steps process data and store it into memory
             if len(self.n_step_buffer) == self.n_step_return:
                 # Get accumulated reward, final next_state and final done
@@ -151,13 +147,12 @@ class AgentDQN(DQNBase):
                 # Get a start state and action taken in that state (it is the first transition in the n_step_buffer)
                 start_state, start_action, _, _, _ = self.n_step_buffer[0]
                 # Store it into memory
-                self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n) 
-            
+                self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n)
+
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
                 self.learn()
-                learning_steps += 1
-                if self.should_update_target(learning_steps):
-                    self.update_target_network()   
+                if self.should_update_target(self.step_count):
+                    self.update_target_network()
 
             if done:
                 # Episode finished, flush the n-step buffer
@@ -165,26 +160,36 @@ class AgentDQN(DQNBase):
                     n_step_reward, n_step_next_state, n_step_done, n = self._get_n_step_info()
                     start_state, start_action, _, _, _ = self.n_step_buffer.popleft()
                     self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n)
-                
-                if "episode" in info: 
-                    rewards_log.append(info['episode']['r'])
-                    all_rewards.append(info['episode']['r'])
+
+                if "episode" in info:
+                    self.train_rewards.append(info["episode"]["r"])
                 episode += 1
-                mean_reward = np.mean(rewards_log)
-                if mean_reward > self.solved_reward:
-                    print(f"Solved! Mean reward: {mean_reward}")
-                    break
-                
+                train_mean_reward = np.mean(self.train_rewards[-100:])
+
+                # Evaluate
+                if episode % self.evaluation_period == 0:
+                    val_mean_reward = self.evaluate()
+                    self.val_rewards.append(val_mean_reward)
+                    if val_mean_reward > self.solved_threshold:
+                        print(f"Solved! Mean reward: {val_mean_reward}")
+                        break
+
                 obs, _ = self.env.reset()
-                if self.is_atari: obs = self.auto_fire()             
+                if self.is_atari:
+                    obs = self.auto_fire()
             else:
                 obs = next_obs
             # Log out the metrics
-            postfix = {"episode": episode, "mean_reward": f"{mean_reward:.2f}" if rewards_log else "N/A", "eps": f"{self.epsilon:.3f}"}
+            postfix = {
+                "Ep.": episode,
+                "Train": f"{train_mean_reward:.2f}",
+                "Val": f"{val_mean_reward:.2f}",
+                "Eps.": f"{self.epsilon:.3f}",
+            }
             pbar.set_postfix(postfix)
-            
-            if timeout is not None and time.time() - start_time > timeout*60:
-                print("[bold red] Timeout has expired, finishing the training...") 
+
+            if timeout is not None and time.time() - start_time > timeout * 60:
+                print("[bold red] Timeout has expired, finishing the training...")
                 break
 
         pbar.close()
