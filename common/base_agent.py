@@ -68,7 +68,7 @@ class BaseAgent(ABC):
             )
 
         # --- Plotting Optional Evaluation Rewards ---
-        if len(self.val_rewards) > 1:
+        if len(self.val_rewards) > 0:
 
             # 1. Calculate the x-coordinates for each evaluation point
             eval_x_coords = np.linspace(0, len(self.train_rewards) - 1, len(self.val_rewards))
