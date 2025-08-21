@@ -44,22 +44,22 @@ DEFAULT_CLASSIC_PARAMS = {
     # ----- COMMON PARAMS -----
     "max_steps": int(5e6),  # Increased for better convergence
     "gamma": 0.99,
-    "memory_size": int(2e4),  # Use smaller size to dicard old samples because they can be harmful
+    "memory_size": int(5e4),  # Use smaller size to dicard old samples because they can be harmful
     "learning_starts": int(1e3),  # No need to wait long
-    "batch_size": 128,  # Larger batch size for more stable gradients
-    "lr": 3e-4,  # We can use a higher lr
+    "batch_size": 64,  # Larger batch size for more stable gradients
+    "lr": 1e-3,  # We can use a higher lr
     "learning_freq": 1,  # Box2D envs are fast, so no need to skip
     "hidden_dim": 64,  # Common value for small problems
     "evaluation_period": 100,  # How often to evaluate (in episodes)
     "evaluation_episodes": 10,  # How many episodes to play in evaluation
     # ----- TARGET NETWORK UPDATE PARAMS -----
     "hard_target_update": True,  # Use either hard or soft update
-    "target_update_freq": 10000,  # We can update much faster
+    "target_update_freq": 8000,  # We can update much faster
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
-    "epsilon_decay_steps": int(2e4),  # Quick exploration
+    "epsilon_decay_steps": int(3e4),  # Quick exploration
     "max_epsilon": 1,
-    "min_epsilon": 0.02,  # To be more greedy
+    "min_epsilon": 0.1,  # To be more greedy
     # ----- PRIORITIZED EXPERIENCE REPLAY PARAMS ----
     "alpha": 0.5,  # Alpha of PER
     "beta_start": 0.4,  # Starting Beta of PER
@@ -69,10 +69,10 @@ DEFAULT_CLASSIC_PARAMS = {
     "n_step_return": 3,
     # ----- DISTRIBUTIONAL PARAMS -----
     "n_atoms": 51,  # Number of atoms in the distribution
-    "v_min": -10,  # Minimum value of support
-    "v_max": 10,  # Maximum value of support
+    "v_min": -50,  # Minimum value of support
+    "v_max": 50,  # Maximum value of support
     # ---------- NOISY NET PARAMS -----
-    "noisy_net": False,  # In Box2D envs epsilon-greedy performs better in my practice
+    "noisy_net": True,  # In Box2D envs epsilon-greedy performs better in my practice
     "noise_std": 0.2,  # Standard deviation for noise initialization
 }
 

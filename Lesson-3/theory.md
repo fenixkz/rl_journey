@@ -90,7 +90,7 @@ So, this is the first approach and you know what? It did not work! I know I know
 
 Okay, let's start with the first problem that is not that obvious but very serious. Every deep learning problem has one assumption that must be valid. It is called i.i.d. or independent and identically distributed data. Basically saying that the data samples the network is using to learn from are independent from one another. But in our case as we iterate in the environment our data coming back from it is at least temporally correlated, right? Doing action $a_t$ in state $s_t$ will affect the next data sample, because that action itself is the main source of the next state $s_{t+1}$. So, there is a temporal correlation between samples ($s_{t+1}$, $a_{t+1}$) and ($s_t$, $a_t$).
 
-I want to emphasize here that samples ($s_{t+1}$, $a_{t+1}$) and ($s_t$, $a_t$) are correlated and that is a problem. But much bigger problem is how we train the network using these samples. The issue with training on consecutive, correlated samples is that the mini-batch becomes extremely biased.
+I want to emphasize here that samples ($s_{t+1}$, $a_{t+1}$) and ($s_t$, $a_t$) are correlated (meaning that they are not fully independent) and that is a problem. But much bigger problem which de-stabilizes the training process is how we train the network using these samples. The main issue lies in training on consecutive and correlated samples. This way the mini-batch becomes extremely biased.
 
 Imagine a mini-batch of 32 consecutive steps in Pong where the ball is stuck in the top corner. The network trains on these 32 very similar experiences and calculates a gradient. That gradient will be heavily skewed, screaming "the only thing that matters in the universe is defending the top corner!" The network then takes a big step in that direction, potentially forgetting everything it knew about playing in the middle or bottom of the screen.
 
@@ -120,7 +120,7 @@ This technique is called **Experience Replay**, and the memory is known as a **R
 
 By training on a random batch of experiences drawn from different points in time, we break the sequence of consecutive samples. This ensures the data within a training batch is largely decorrelated from each other, which solves the problem of biased gradients. The correlation between the original samples still exists in the buffer, but it no longer affects the learning update.
 
-In practice, the replay buffer is often implemented as a double-ended queue of a maximum size N to keep only the last N experiences. This also allows us to leverage the benefits of mini-batch gradient descent, which is generally more stable and efficient than updating on a single sample at a time.
+In practice, the replay buffer is often implemented as a double-ended queue of a maximum size $N$ to keep only the last $N$ experiences. This also allows us to leverage the benefits of mini-batch gradient descent, which is generally more stable and efficient than updating on a single sample at a time.
 
 2. **Chasing own tail**
 
@@ -223,7 +223,7 @@ This is what was introduced in Prioritized Experience Replay (PER) paper, the au
 
 ### What and how do we use for sampling?
 
-Okay, when I told you that we use some pre-defined logic I did not mean that we research the problem and then sample the experience that we think is important. No, I meant that we can leverage something that the agent itself is calculating to improve our sample logic.
+Okay, when I told you that we use some pre-defined logic I did not mean that we research the problem and then manually inject our inductive bias. No, I meant that we can leverage something that the agent itself is calculating to improve our sample logic.
 
 Let me be specific, for each tuple of experience `<s, a, r, done, s'>` that we gather there is a corresponding TD error (well, it can be easily computed). This TD error can also serve as a good signal of importance of that sample. Think of it: the bigger the TD error, the more the network was wrong about the estimation, meaning the more the network was surprised. So, naturally, we would want to train on this sample more, to make the surprise much less in future.
 
@@ -235,10 +235,12 @@ When a new experience (transition) `<s, a, r, done, s'>` is added to the replay 
 
 When a transition $i$ is sampled from the buffer and used for learning, its TD error $\delta_i$ is calculated: $\delta_i = y_i - Q_{online}(s_i, a_i)$.
 
-The new priority $p_i$ of this transition is then set based on this TD error, usually using its absolute value plus a small positive constant $\epsilon_{PER}$ (to prevent any transition from having zero probability of being sampled): $p_i = |\delta_i| + \epsilon_{PER}$. SO it means that the higher the error (both positive and negative) the bigger the priority of that sample.
-
-To have a more control over the priorities, it is further raised to a power $\alpha$ (a hyperparameter, where $0 \le \alpha \le 1$): $p_i^\alpha$.
-- If $\alpha=0$, we get uniform random sampling, like in a Replay Buffer.
+The new priority $p_i$ of this transition is then set based on this TD error, usually using its absolute value plus a small positive constant $\epsilon_{PER}$ (to prevent any transition from having zero probability of being sampled):
+$$
+p_i = |\delta_i| + \epsilon_{PER}
+$$
+So it means that the higher the error (both positive and negative) the bigger the priority of that sample. To have a more control over the priorities, it is further raised to a power $\alpha$ (a hyperparameter, where $0 \le \alpha \le 1$): $p_i^\alpha$.
+- If $\alpha=0$, all priorities are equal to one. That means that we get uniform random sampling, like in a Replay Buffer.
 - If $\alpha=1$, we get full prioritization based on $p_i$.
 
 2. **Sampling Based on Priorities:**
@@ -688,7 +690,7 @@ Okay, it is probably a point of confusion. How does the neural network knows whi
 
 During training, we want to minimize a loss function $L$ (e.g., the Mean Squared Bellman Error in DQN). The gradients of the loss with respect to the learnable parameters ($\mu$ and $\sigma$) are calculated via backpropagation.
 
-Let's focus on the gradient for a single weight $W_{ji}$ (connecting input neuron $i$ to output neuron $j$) and its corresponding bias $b_j$, but for the sake of simplicity let's assume thta biases are zero. The gradient of the loss $L$ with respect to any parameter $\theta$ is found using the chain rule:
+Let's focus on the gradient for a single weight $W_{ji}$ (connecting input neuron $i$ to output neuron $j$) and its corresponding bias $b_j$, but for the sake of simplicity let's assume that biases are zero. The gradient of the loss $L$ with respect to any parameter $\theta$ is found using the chain rule:
 
 $$\frac{\partial L}{\partial \theta} = \sum_k \frac{\partial L}{\partial y_k} \frac{\partial y_k}{\partial \theta}$$
 
@@ -896,6 +898,32 @@ These parameters were used consistently across all 57 Atari games without game-s
 | Multi-step returns n | 3 |
 | Distributional atoms | 51 |
 | Distributional min/max values | [−10, 10] |
+
+### Intuition
+
+To help you a little bit in your experiments with variants of DQN I can describe my intuition towards the most important hyperparameters. I hope it would be helpful for you.
+
+- **Discount factor**
+
+In many implementations you will see this parameter set to either 0.9 or 0.99. The lower value means that you care less about the future rewards which is rarely true. Set it to 0.99.
+
+- **Memory size**
+
+This hyperparameter is more tricky. Usually, it is set to some high value like 1M, but it might have its own pitfalls. As our Q-values improve, our policy (epsilon-greedy) also improves. It means that more recent samples are kinda better. Think about it, in the beginning the agent purely explores, because the epsilon is high. So, the vast majority of samples will have bad or negative rewards. Of course learning from them is important, but learning only from them is dangerous. As more samples are collected, the probability (in vanilla replay buffer) of sampling a negative experience is still high simply because of the total number of them. So, in simpler environment I think it makes sense to set the memory size to something like 50,000, such that old experience will be discarded as the new, better samples collected. In my experiments same is applied to PER as well.
+
+- **Batch size**
+
+In Deep Learning field you will see that practitioners usually prefer to use higher batch size like 512 or 1028, higher batch means smoother gradient means better learning. The only constrained is available V-RAM. However, I was suprised to see that 99% of implementations of DQN and its variants that I saw usually use batch sizes either 32 or 64.
+
+The first and most important reason of the small batch size is the temporal correlation that we discussed earlier. We said that sampling uniform helps us to break it, but with higher batch sizes there is a higher probability of sampling temporaly correlated samples, right? But still when you have 1M samples this probability is quite small. So, in my intuition this value depends on your memory size. I think de-facto standard is 32 or 64, but nothing stops you from increasing it. With higher memory size you can freely increase your batch size.
+
+- **Learning rate**
+
+Learning rate is probably the most important hyperparameter. Setting it too high will lead to a very unstable training process. Setting it too low will lead to a painfully slow learning. The sweet spot is something in range of 1e-4 to 1e-3, this makes the agent slowly but stably move towards optimal Q-values.
+
+- **Target update frequency**
+
+This hyperparamter is directly proporional to the stability of your training. Setting it too low (like 500 steps) will make your training unstable. Usually, the higher values lead to a safer training, but making it too high will be troublesome. Online network must move its estimates towards the correct direction, if the target network is very outdated, then these estimates won't be correct. But if the target network is updated very frequently, then there is going to be so much noise. Online network would move its estimates in the noisy directions. In my experiments values between 5,000 - 15,000 work well.
 
 
 # Conclusion

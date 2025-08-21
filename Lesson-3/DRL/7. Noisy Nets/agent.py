@@ -33,7 +33,7 @@ class AgentDQN(DQNBase):
         self.beta_end = agent_config.beta_final
         self.beta_increase_steps = agent_config.beta_increase_steps
         self.current_beta = self.beta_start
-        self.step_count = 0
+        self.learning_step_count = 0
 
         # ---------- NOISY NET PARAMS ------------
         self.noisy_std = agent_config.noise_std
@@ -101,7 +101,7 @@ class AgentDQN(DQNBase):
         Implements learning with Noisy Networks and Prioritized Experience Replay (PER).
         """
         # Anneal beta for PER
-        progress = min(self.step_count / self.beta_increase_steps, 1.0)
+        progress = min(self.learning_step_count / self.beta_increase_steps, 1.0)
         self.current_beta = self.beta_start + (self.beta_end - self.beta_start) * progress
 
         # 1. Sample a batch of prioritized experiences from PER buffer
@@ -157,7 +157,7 @@ class AgentDQN(DQNBase):
         self.memory.update_priorities(indices, new_priorities)
 
         # Increment step counter for beta annealing
-        self.step_count += 1
+        self.learning_step_count += 1
 
         # 9. Reset noise after all gradient computations are done
         self.reset_noise()
@@ -201,7 +201,7 @@ class AgentDQN(DQNBase):
 
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
                 self.learn()
-                if self.should_update_target(self.step_count):
+                if self.should_update_target(self.learning_step_count):
                     self.update_target_network()
 
             if done:
@@ -218,7 +218,11 @@ class AgentDQN(DQNBase):
 
                 # Evaluate
                 if episode % self.evaluation_period == 0:
+                    # Disable noise for the evaluation
+                    self.online_model.eval()
                     val_mean_reward = self.evaluate()
+                    # Enable it back
+                    self.online_model.train()
                     self.val_rewards.append(val_mean_reward)
                     if val_mean_reward > self.solved_threshold:
                         print(f"Solved! Mean reward: {val_mean_reward}")

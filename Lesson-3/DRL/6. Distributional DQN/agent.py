@@ -31,7 +31,7 @@ class AgentDQN(DQNBase):
         self.beta_end = agent_config.beta_final
         self.beta_increase_steps = agent_config.beta_increase_steps
         self.current_beta = self.beta_start
-        self.step_count = 0
+        self.learning_step_count = 0
 
         # ---------- C51 PARAMS ------------
         self.n_atoms = agent_config.n_atoms
@@ -178,10 +178,10 @@ class AgentDQN(DQNBase):
         5. Project TD target = G_n + gamma^n * Q(s', a') to the current support
         6. Calculate cross-entropy loss weigthed by IS weights (w)
         7. Backpropogate
-        8. Assing new priorities as |Q(s,a) - TD target| to the samples_i
+        8. Assign new priorities as cross-entropy loss to the samples_i
         """
         # Anneal beta for PER
-        progress = min(self.step_count / self.beta_increase_steps, 1.0)
+        progress = min(self.learning_step_count / self.beta_increase_steps, 1.0)
         self.current_beta = self.beta_start + (self.beta_end - self.beta_start) * progress
 
         # 1. Sample a batch of prioritized experiences from PER buffer
@@ -227,16 +227,8 @@ class AgentDQN(DQNBase):
         # 5. Calculate cross-entropy loss
         loss = -(projected_dist * current_dist_log).sum(dim=-1)
 
-        # 6. Calculate TD-errors for PER using L1 loss on expected Q-values
-        with torch.no_grad():
-            # Expected Q-value of the current state-action pair
-            current_q_value = (current_dist_log.exp() * self.support).sum(dim=1)
-
-            # Expected Q-value of the target distribution
-            target_q_value = (projected_dist * self.support).sum(dim=1)
-
-            # TD-error is the absolute difference
-            td_errors = torch.abs(current_q_value - target_q_value)
+        # 6. Store cross-entropy loss for PER priorities (detach to avoid gradients)
+        ce_errors = loss.detach()
 
         # 7. Apply importance sampling weights
         weighted_loss = weights * loss
@@ -248,12 +240,12 @@ class AgentDQN(DQNBase):
         torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=1.0)
         self.optimizer.step()
 
-        # 9. Update priorities in PER
-        new_priorities = td_errors.detach().cpu().numpy() + 1e-6
+        # 9. Update priorities in PER using cross-entropy loss
+        new_priorities = ce_errors.cpu().numpy() + 1e-6
         self.memory.update_priorities(indices, new_priorities)
 
         # Increment step counter for beta annealing
-        self.step_count += 1
+        self.learning_step_count += 1
 
         return loss.item()
 
@@ -295,7 +287,7 @@ class AgentDQN(DQNBase):
 
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
                 self.learn()
-                if self.should_update_target(self.step_count):
+                if self.should_update_target(self.learning_step_count):
                     self.update_target_network()
 
             if done:

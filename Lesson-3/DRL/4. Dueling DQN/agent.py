@@ -30,7 +30,7 @@ class AgentDQN(DQNBase):
         self.beta_end = agent_config.beta_final
         self.beta_increase_steps = agent_config.beta_increase_steps
         self.current_beta = self.beta_start
-        self.step_count = 0
+        self.learning_step_count = 0
 
     def learn(self):
         """
@@ -48,7 +48,7 @@ class AgentDQN(DQNBase):
 
         # Anneal beta (importance sampling correction) from beta_start to beta_end over training
         # Beta controls how much we correct for the bias introduced by prioritized sampling
-        progress = min(self.step_count / self.beta_increase_steps, 1.0)  # Normalize step count
+        progress = min(self.learning_step_count / self.beta_increase_steps, 1.0)  # Normalize step count
         self.current_beta = self.beta_start + (self.beta_end - self.beta_start) * progress
 
         # 1. Sample a batch of prioritized experiences from PER buffer
@@ -111,7 +111,7 @@ class AgentDQN(DQNBase):
         self.memory.update_priorities(indices, new_priorities)
 
         # Increment step counter for beta annealing
-        self.step_count += 1
+        self.learning_step_count += 1
 
     def train(self, max_steps: int = 100000, timeout: float = None):
         obs, _ = self.env.reset()
@@ -137,7 +137,7 @@ class AgentDQN(DQNBase):
 
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
                 self.learn()
-                if self.should_update_target(self.step_count):
+                if self.should_update_target(self.learning_step_count):
                     self.update_target_network()
 
             if done:

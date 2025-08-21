@@ -128,7 +128,11 @@ class AgentDQN(DQNBase):
         """
         with torch.no_grad():
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-            q_values = self.online_model(state_tensor)
+            log_probs = self.online_model(state_tensor)  # [1, action_space, n_atoms]
+            probs = log_probs.exp()
+
+            # Compute expected Q-values: Q(s,a) = sum_i z_i * p_i(s,a)
+            q_values = (probs * self.support.view(1, 1, -1)).sum(dim=-1)
             action = torch.argmax(q_values, dim=1).squeeze().item()
             return action
 
@@ -228,8 +232,8 @@ class AgentDQN(DQNBase):
         # 4. Calculate target distribution using Double DQN
         with torch.no_grad():
             # Disable noise first
-            self.online_model.eval()
-            self.target_model.eval()
+            # self.online_model.eval()
+            # self.target_model.eval()
             # Use online network to select best actions
             online_next_log_probs = self.online_model(next_states)
             online_next_probs = online_next_log_probs.exp()
@@ -248,22 +252,14 @@ class AgentDQN(DQNBase):
             # Add small epsilon to avoid log(0) in the loss calculation
             projected_dist = projected_dist.clamp(min=1e-8)
             # Enable it back
-            self.online_model.train()
-            self.target_model.train()
+            # self.online_model.train()
+            # self.target_model.train()
 
         # 5. Calculate cross-entropy loss, current dist_log is already using logartihm
         loss = -(projected_dist * current_dist_log).sum(dim=-1)
 
-        # 6. Calculate TD-errors for PER using L1 loss on expected Q-values
-        with torch.no_grad():
-            # Expected Q-value of the current state-action pair
-            current_q_value = (current_dist_log.exp() * self.support).sum(dim=1)
-
-            # Expected Q-value of the target distribution
-            target_q_value = (projected_dist * self.support).sum(dim=1)
-
-            # TD-error is the absolute difference
-            td_errors = torch.abs(current_q_value - target_q_value)
+        # 6. Store cross-entropy loss for PER priorities (detach to avoid gradients)
+        ce_errors = loss.detach()
 
         # 7. Apply importance sampling weights
         weighted_loss = weights * loss
@@ -276,7 +272,7 @@ class AgentDQN(DQNBase):
         self.optimizer.step()
 
         # 9. Update priorities in PER
-        new_priorities = td_errors.detach().cpu().numpy() + 1e-6
+        new_priorities = ce_errors.cpu().numpy() + 1e-6
         self.memory.update_priorities(indices, new_priorities)
 
         # 10. Reset noise after gradient computation
@@ -325,7 +321,7 @@ class AgentDQN(DQNBase):
 
             if global_step > self.learning_starts and global_step % self.learning_freq == 0:
                 self.learn()
-                if self.should_update_target(self.step_count):
+                if self.should_update_target(self.learning_step_count):
                     self.update_target_network()
 
             if done:
@@ -342,7 +338,11 @@ class AgentDQN(DQNBase):
 
                 # Evaluate
                 if episode % self.evaluation_period == 0:
+                    # Disable noise for the evaluation
+                    self.online_model.eval()
                     val_mean_reward = self.evaluate()
+                    # Enable it back
+                    self.online_model.train()
                     self.val_rewards.append(val_mean_reward)
                     if val_mean_reward > self.solved_threshold:
                         print(f"Solved! Mean reward: {val_mean_reward}")

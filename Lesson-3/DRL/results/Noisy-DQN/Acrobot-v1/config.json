@@ -24,7 +24,7 @@
     "n_atoms": 51,
     "v_min": -10,
     "v_max": 10,
-    "noisy_net": false,
+    "noisy_net": true,
     "noise_std": 0.2,
     "seed": 224,
     "memory": "per",

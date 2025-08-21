@@ -77,10 +77,10 @@ class AgentDQN(DQNBase):
         loss = F.mse_loss(actual_q_values, td_target)
 
         # 7. Perform Gradient Descent Step
+        self.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.online_model.parameters(), max_norm=5.0)
         self.optimizer.step()
-        self.optimizer.zero_grad()
         return loss.item()
 
     def train(self, max_steps: int = 100000, timeout: float = None):
