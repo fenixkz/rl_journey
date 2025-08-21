@@ -337,7 +337,7 @@ class AgentDQN(DQNBase):
                 train_mean_reward = np.mean(self.train_rewards[-100:])
 
                 # Evaluate
-                if episode % self.evaluation_period == 0:
+                if global_step > self.learning_starts and episode % self.evaluation_period == 0:
                     # Disable noise for the evaluation
                     self.online_model.eval()
                     val_mean_reward = self.evaluate()

@@ -147,7 +147,7 @@ class AgentDQN(DQNBase):
                 train_mean_reward = np.mean(self.train_rewards[-100:])
 
                 # Evaluate
-                if episode % self.evaluation_period == 0:
+                if global_step > self.learning_starts and episode % self.evaluation_period == 0:
                     val_mean_reward = self.evaluate()
                     self.val_rewards.append(val_mean_reward)
                     if val_mean_reward > self.solved_threshold:

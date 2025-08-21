@@ -256,6 +256,8 @@ class DQNBase(BaseAgent):
         rewards = []
         for _ in range(self.evaluation_episodes):
             state, _ = self.env.reset()
+            if self.is_atari:
+                state = self.auto_fire()
             done = False
             total_reward = 0
 
