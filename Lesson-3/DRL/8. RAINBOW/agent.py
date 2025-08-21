@@ -358,8 +358,9 @@ class AgentDQN(DQNBase):
                 "Ep.": episode,
                 "Train": f"{train_mean_reward:.2f}",
                 "Val": f"{val_mean_reward:.2f}",
-                "Eps.": f"{self.epsilon:.3f}",
             }
+            if not self.use_noisy_net:
+                postfix["Eps"] = f"{self.epsilon:.3f}"
             pbar.set_postfix(postfix)
 
             if timeout is not None and time.time() - start_time > timeout * 60:

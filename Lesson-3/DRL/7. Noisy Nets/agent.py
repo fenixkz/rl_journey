@@ -230,12 +230,7 @@ class AgentDQN(DQNBase):
             else:
                 obs = next_obs
             # Log out the metrics
-            postfix = {
-                "Ep.": episode,
-                "Train": f"{train_mean_reward:.2f}",
-                "Val": f"{val_mean_reward:.2f}",
-                "Eps.": f"{self.epsilon:.3f}",
-            }
+            postfix = {"Ep.": episode, "Train": f"{train_mean_reward:.2f}", "Val": f"{val_mean_reward:.2f}"}
             pbar.set_postfix(postfix)
 
             if timeout is not None and time.time() - start_time > timeout * 60:
