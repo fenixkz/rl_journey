@@ -107,7 +107,9 @@ class AgentDQN(DQNBase):
             action = torch.argmax(q_values, dim=1).squeeze().item()
             return action
 
-    def _project_distribution(self, next_distributions, rewards, dones, ns):
+    def _project_distribution(
+        self, next_distributions: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, ns: torch.Tensor
+    ) -> torch.Tensor:
         """
         Project the target distribution onto the support.
 
@@ -121,11 +123,6 @@ class AgentDQN(DQNBase):
             Projected distribution [batch_size, n_atoms]
         """
         batch_size = rewards.shape[0]
-        delta_z = self.delta_z
-        v_min = self.v_min
-        v_max = self.v_max
-        n_atoms = self.n_atoms
-        support = self.support
 
         # Convert log probabilities to probabilities
         next_probs = next_distributions.exp()
@@ -137,33 +134,31 @@ class AgentDQN(DQNBase):
         dones = dones.unsqueeze(1)  # [batch_size, 1]
 
         # Projected support: Tz_j = r + gamma^n * z_j * (1 - done)
-        Tz = rewards + gamma_n * support.unsqueeze(0) * (1 - dones)
-        Tz = Tz.clamp(min=v_min, max=v_max)
+        Tz = rewards + gamma_n * self.support.unsqueeze(0) * (1 - dones)
+        # Clamp, such that it does not go over bounds
+        Tz = Tz.clamp(min=self.v_min, max=self.v_max)
 
-        # Compute projection indices
-        b = (Tz - v_min) / delta_z
-        lower = b.floor().long()
-        upper = b.ceil().long()
+        # Compute projection indices (atoms)
+        b = (Tz - self.v_min) / self.delta_z
+        lower = b.floor().clamp(0, self.n_atoms - 1)
+        upper = b.ceil().clamp(0, self.n_atoms - 1)
 
-        # Handle the case where lower == upper (when b is an integer)
-        lower[(upper > 0) * (lower == upper)] -= 1
-        upper[(lower < (n_atoms - 1)) * (lower == upper)] += 1
+        # Distribute probability mass using clean-rl's logic
+        # The (l == b).float() term is crucial for placing all mass on 'l' when 'b' is an exact integer.
+        d_m_l = (upper.float() + (lower == b).float() - b) * next_probs
+        d_m_u = (b - lower.float()) * next_probs
 
         # Initialize projected distribution
-        projected_dist = torch.zeros((batch_size, n_atoms), device=self.device)
+        projected_dist = torch.zeros((batch_size, self.n_atoms), device=self.device)
 
         # Distribute probability mass
-        offset = torch.arange(batch_size, device=self.device).unsqueeze(1).expand(batch_size, n_atoms)
+        offset = torch.arange(batch_size, device=self.device).unsqueeze(1).expand(batch_size, self.n_atoms)
 
         # Add probability mass to lower bound
-        projected_dist.view(-1).index_add_(
-            0, (lower + offset * n_atoms).view(-1), (next_probs * (upper.float() - b)).view(-1)
-        )
+        projected_dist.view(-1).index_add_(0, (lower + offset * self.n_atoms).long().view(-1), d_m_l.view(-1))
 
         # Add probability mass to upper bound
-        projected_dist.view(-1).index_add_(
-            0, (upper + offset * n_atoms).view(-1), (next_probs * (b - lower.float())).view(-1)
-        )
+        projected_dist.view(-1).index_add_(0, (upper + offset * self.n_atoms).long().view(-1), d_m_u.view(-1))
 
         return projected_dist
 
@@ -180,6 +175,8 @@ class AgentDQN(DQNBase):
         7. Backpropogate
         8. Assign new priorities as cross-entropy loss to the samples_i
         """
+        if len(self.memory) < self.batch_size:
+            return 0.0
         # Anneal beta for PER
         progress = min(self.learning_step_count / self.beta_increase_steps, 1.0)
         self.current_beta = self.beta_start + (self.beta_end - self.beta_start) * progress
@@ -292,10 +289,7 @@ class AgentDQN(DQNBase):
 
             if done:
                 # Episode finished, flush the n-step buffer
-                while self.n_step_buffer:
-                    n_step_reward, n_step_next_state, n_step_done, n = self._get_n_step_info()
-                    start_state, start_action, _, _, _ = self.n_step_buffer.popleft()
-                    self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n)
+                self.n_step_buffer.clear()
 
                 if "episode" in info:
                     self.train_rewards.append(info["episode"]["r"])

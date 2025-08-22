@@ -156,10 +156,7 @@ class AgentDQN(DQNBase):
 
             if done:
                 # Episode finished, flush the n-step buffer
-                while self.n_step_buffer:
-                    n_step_reward, n_step_next_state, n_step_done, n = self._get_n_step_info()
-                    start_state, start_action, _, _, _ = self.n_step_buffer.popleft()
-                    self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n)
+                self.n_step_buffer.clear()
 
                 if "episode" in info:
                     self.train_rewards.append(info["episode"]["r"])

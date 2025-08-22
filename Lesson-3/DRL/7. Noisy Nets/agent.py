@@ -100,6 +100,8 @@ class AgentDQN(DQNBase):
         """
         Implements learning with Noisy Networks and Prioritized Experience Replay (PER).
         """
+        if len(self.memory) < self.batch_size:
+            return 0.0
         # Anneal beta for PER
         progress = min(self.learning_step_count / self.beta_increase_steps, 1.0)
         self.current_beta = self.beta_start + (self.beta_end - self.beta_start) * progress
@@ -124,8 +126,8 @@ class AgentDQN(DQNBase):
         # 4. Calculate target Q-values using Double DQN
         with torch.no_grad():
             # Disable noise first
-            # self.online_model.eval()
-            # self.target_model.eval()
+            self.online_model.eval()
+            self.target_model.eval()
             # Use online network to select best actions
             next_actions = torch.argmax(self.online_model(next_states), dim=1)
 
@@ -136,8 +138,8 @@ class AgentDQN(DQNBase):
             gamma_n = self.gamma**ns
             targets = rewards + gamma_n * next_q_values * (1 - dones)
             # Enable it back
-            # self.online_model.train()
-            # self.target_model.train()
+            self.online_model.train()
+            self.target_model.train()
         # 5. Calculate TD-errors for PER
         td_errors = torch.abs(q_values - targets)
 
@@ -206,10 +208,7 @@ class AgentDQN(DQNBase):
 
             if done:
                 # Episode finished, flush the n-step buffer
-                while self.n_step_buffer:
-                    n_step_reward, n_step_next_state, n_step_done, n = self._get_n_step_info()
-                    start_state, start_action, _, _, _ = self.n_step_buffer.popleft()
-                    self.memory.push(start_state, start_action, n_step_reward, n_step_next_state, n_step_done, n)
+                self.n_step_buffer.clear()
 
                 if "episode" in info:
                     self.train_rewards.append(info["episode"]["r"])
