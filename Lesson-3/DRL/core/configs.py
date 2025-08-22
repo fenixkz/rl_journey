@@ -15,7 +15,7 @@ DEFAULT_ATARI_PARAMS = {
     "evaluation_period": 1000,  # How often to evaluate (in episodes)
     "evaluation_episodes": 10,  # How many episodes to play in evaluation
     # ----- TARGET NETWORK UPDATE PARAMS -----
-    "hard_target_update": True,  # Use either hard or soft update, RAINBOW uses hard
+    "hard_target_update": False,  # Use either hard or soft update, RAINBOW uses hard
     "target_update_freq": 32000,  # RAINBOW paper uses 32k frames, but it has to be scaled accordingly to learning_freq
     "tau": 0.005,
     # ----- EPSILON-GREEDY PARAMS -----
