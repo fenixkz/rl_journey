@@ -401,25 +401,31 @@ So, you have to modify what you store in the memory (either Replay Buffer or PER
 - $s_t$ -- Start state
 - $a_t$ -- Action taken in start state
 - $r_{t+n+1}$ -- Accumulated reward after taking N-steps after start state
+- $s_{t+n+1}$ -- The state at which the agent landed after performing N-steps
 - $\text{done}_{t+n}$ -- Whether or not the state $s_{t+n+1}$ was terminal
 
-Furthermore, because there can be cases where the agent hits the terminal state before all N steps are done you have to store additionally $n$ which is the number of actual steps that were taken.
+### Implementation details
 
-It is important to understand that we are still storing in the memory each transition of the agent, we are just changing the reward to N-step return. It might be more intuitive to understand this concept with an example.
+Okay, there are two ways that we can take to implement the N-step return. Let's review each one and think which is better:
 
-Let's say an agent took 5 steps in an environment and our $N$ is set to 3 (for simplicity assume that only last step resulted in terminal next state):
+- Store all transitions even if they lasted less than N steps
+- Store only transitions that lasted exactly N steps
+
+To understand them better, let's review one concrete example. Let's say an agent took 5 steps in an environment and our $N$ is set to 3 (for simplicity assume that only last step resulted in terminal next state):
 
 ($s_0$, $a_0$, $r_1$, $s_1$) -> ($s_1$, $a_1$, $r_2$, $s_2$) -> ($s_2$, $a_2$, $r_3$, $s_3$) -> ($s_3$, $a_3$, $r_4$, $s_4$) -> ($s_4$, $a_4$, $r_5$, $s_5$, $\text{done}=T$)
 
 Then, we would calculate each 3-step return and these tuples in the form (state, action, return, final state, actual steps taken, done) will be added to our buffer:
 
-- $(s_0, a_0, r_1 + \gamma r_2 + \gamma^2 r_3, s_3, 3, F)$
-- $(s_1, a_1, r_2 + \gamma r_3 + \gamma^2 r_4, s_4, 3, F)$
-- $(s_2, a_2, r_3 + \gamma r_4 + \gamma^2 r_5, s_5, 3, T)$
-- $(s_3, a_3, r_4 + \gamma r_5, s_5, 2, T)$
-- $(s_4, a_4, r_5, s_5, 1, T)$
+- $e_0 = (s_0, a_0, r_1 + \gamma r_2 + \gamma^2 r_3, s_3, 3, F)$
+- $e_1 = (s_1, a_1, r_2 + \gamma r_3 + \gamma^2 r_4, s_4, 3, F)$
+- $e_2 = (s_2, a_2, r_3 + \gamma r_4 + \gamma^2 r_5, s_5, 3, T)$
+- $e_3 = (s_3, a_3, r_4 + \gamma r_5, s_5, 2, T)$
+- $e_4 = (s_4, a_4, r_5, s_5, 1, T)$
 
-So, we are still adding to the buffer every transition, the only change is replacing one step reward with N-step return. You might wonder why do we have to store additionally actual number of steps taken? This $n$ is needed to correctly calculate TD-target. If you remember for TD-target we use this formula:
+Let's start with the second approach because it is simpler. This approach basically discards all transitions that are not resulted in exactly 3-step returns (like $e_3$ and $e_4$), to the memory we only push $e_0$, $e_1$, and $e_2$.
+
+On the other hand, the first approach requires more work to do to implement correctly. The logic behind this approach is that we store all transitions no matter what is the actual return is. But because there can be cases where the agent hits the terminal state before all N steps are done, you have to store additionally in the memory the number of actual steps that were taken. So, we are still adding to the buffer every transition, the only change is replacing one step reward with N-step return. You might wonder why do we have to store additionally actual number of steps taken? This $n$ is needed to correctly calculate TD-target. If you remember for TD-target we use this formula:
 
 $$
 \text{TD Target} = r + \gamma \cdot \max_a{Q(s_{t+1},a)}
@@ -430,6 +436,16 @@ Since we replaced a single step reward $r$ with N-step return $G_n$, we also hav
 $$
 \text{TD Target} = G_n + \gamma^n \cdot \max_a{Q(s_{t+n+1},a)}
 $$
+
+---
+
+Okay, let's talk about why would anyone prefer one over another.
+
+The second approach in my opinion leads to a safer training. So, when we use $e_1$ to train we are pushing the network to move its estimates of Q-values towards: $y = r_2 + \gamma r_3 + \gamma^2 r_4 + \gamma^3 max_a Q(s_4, a)$, but the thing is that to improve the estimate of $Q(s_4, a)$ we are using 1-step return ($e_4$ contains only $r_5$). Basically, what I am trying to say is that mixing less biased 3-step returns with more biased 1 or 2 steps hinder our learning process. It is much safer to stick to only 3-step returns.
+
+While the second approach is safer, the first approach is more sample efficient. Information is valuable and discarding it may be bad. So what if we used only 1-step return for calculating the target for $Q(s_4, a)$? It is better than nothing. So, the first approach tries to squeeze the maximum from agent's interactions.
+
+Ultimately, it is up to you to decide what approach you want to take. For example, Clean-RL's [implementation](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/rainbow_atari.py) uses the second approach.
 
 ## Distributional Reinforcement Learning
 

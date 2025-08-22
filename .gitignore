@@ -4,4 +4,5 @@ ppo_clipping_test.py
 connect4.py
 Lesson-1/ES/migration_plan.md
 Lesson-2/MonteCarlo/results/CartPole-v1/policy.npz
+debug/
 Lesson-4/
