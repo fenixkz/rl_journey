@@ -1,5 +1,5 @@
 import time
-from typing import Optional
+from typing import Dict, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -15,12 +15,15 @@ class AgentDQN(DQNBase):
     Distributional DQN (C51) algorithm with Prioritized Experience Replay, Double DQN update rule, and N-step returns.
     """
 
-    def __init__(self, env: gym.Env, agent_config: AgentConfig, solved_threshold: float, is_atari: bool):
+    def __init__(self, env: gym.Env, agent_config: AgentConfig, env_config: Dict, is_atari: bool):
 
         # Overwrite some specific params
         agent_config.memory = "per"
         agent_config.dueling = True
 
+        solved_threshold = env_config.get("solved_reward", 100)
+        max_reward = env_config.get("max_reward", 100)
+        min_reward = env_config.get("min_reward", -100)
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari, solved_threshold)
 
@@ -35,12 +38,12 @@ class AgentDQN(DQNBase):
 
         # ---------- C51 PARAMS ------------
         self.n_atoms = agent_config.n_atoms
-        self.v_min = agent_config.v_min
-        self.v_max = agent_config.v_max
+        self.v_min = min_reward if min_reward > -100 else -100
+        self.v_max = max_reward if max_reward < 100 else 100
         self.delta_z = (self.v_max - self.v_min) / (self.n_atoms - 1)
-
         # Support of the distribution
         self.support = torch.linspace(self.v_min, self.v_max, self.n_atoms).to(self.device)
+        print(f"[C51] Using [{self.v_min}; {self.v_max}] range")
 
         # Override the policy networks with distributional versions
         self._setup_distributional_networks(agent_config)

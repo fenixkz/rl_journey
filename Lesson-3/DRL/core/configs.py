@@ -33,8 +33,6 @@ DEFAULT_ATARI_PARAMS = {
     "n_step_return": 3,  # RAINBOW paper
     # ----- DISTRIBUTIONAL PARAMS -----
     "n_atoms": 51,  # Number of atoms in the distribution
-    "v_min": -10,  # Minimum value of support, RAINBOW
-    "v_max": 10,  # Maximum value of support, RAINBOW
     # ---------- NOISY NET PARAMS -----
     "noisy_net": True,  # In Atari envs noisy-nets are better than epsilon-greedy
     "noise_std": 0.5,  # Standard deviation for noise initialization, per RAINBOW paper
@@ -69,8 +67,6 @@ DEFAULT_CLASSIC_PARAMS = {
     "n_step_return": 3,
     # ----- DISTRIBUTIONAL PARAMS -----
     "n_atoms": 51,  # Number of atoms in the distribution
-    "v_min": -50,  # Minimum value of support
-    "v_max": 50,  # Maximum value of support
     # ---------- NOISY NET PARAMS -----
     "noisy_net": True,  # In Box2D envs epsilon-greedy performs better in my practice
     "noise_std": 0.2,  # Standard deviation for noise initialization
@@ -108,8 +104,6 @@ class AgentConfig:
     n_step_return: int = 3
     # ----- DISTRIBUTIONAL PARAMS -----
     n_atoms: int = 51
-    v_min: float = -10
-    v_max: float = 10
     # ----- NOISY NET PARAMS -----
     noisy_net: bool = True
     noise_std: float = 0.5

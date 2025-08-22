@@ -73,10 +73,14 @@ def main(args):
     agent_config = AgentConfig.from_dict(params)
     # Overwrite seed
     agent_config.seed = args.seed
-    solved_threshold = env_config["solved_reward"]
+    solved_threshold = env_config.get("solved_reward", 100)
+    max_reward = env_config.get("max_reward", 100)
+    min_reward = env_config.get("min_reward", -100)
 
     # Create the agent
-    agent: DQNBase = registry.create_agent(agent_number, env_id, agent_config, solved_threshold, is_atari)
+    agent: DQNBase = registry.create_agent(
+        agent_number, env_id, agent_config, solved_threshold, is_atari, min_reward, max_reward
+    )
 
     save_path = os.path.join("results", agent.get_name(), env_name)
     os.makedirs(save_path, exist_ok=True)

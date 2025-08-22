@@ -1,4 +1,5 @@
 import time
+from typing import Dict
 
 import gymnasium as gym
 import numpy as np
@@ -14,11 +15,13 @@ class AgentDQN(DQNBase):
     N-step Dueling-DQN algorithm with Prioritized Experience Replay and Double DQN update rule.
     """
 
-    def __init__(self, env: gym.Env, agent_config: AgentConfig, solved_threshold: float, is_atari: bool):
+    def __init__(self, env: gym.Env, agent_config: AgentConfig, env_config: Dict, is_atari: bool):
 
         # Overwrite some specific params
         agent_config.memory = "per"
         agent_config.dueling = True
+
+        solved_threshold = env_config.get("solved_reward", 100)
 
         # Initialize the parent class
         super().__init__(env, agent_config, is_atari, solved_threshold)
