@@ -1,5 +1,4 @@
 import os
-import random
 import sys
 from abc import abstractmethod
 from collections import deque
@@ -24,18 +23,6 @@ from common.base_agent import BaseAgent  # noqa: E402
 from common.utils.atari_utils import auto_fire, clip_reward, get_atari_env  # noqa: E402
 
 
-def set_seed(seed):
-    """Set random seeds for reproducibility"""
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    random.seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-
-
 class DQNBase(BaseAgent):
 
     def __init__(
@@ -54,10 +41,9 @@ class DQNBase(BaseAgent):
             env.action_space, gym.spaces.Discrete
         ), "Detected non-discrete action space, this class works only with discrete action space problems!"
 
-        super().__init__(env=env, solved_threshold=solved_threshold)
+        super().__init__(env=env, solved_threshold=solved_threshold, seed=agent_config.seed)
 
         # --------- HYPERPARAMS ---------
-        self.env = env
         self.observation_space = env.observation_space
         self.action_space = env.action_space
         self.gamma = agent_config.gamma

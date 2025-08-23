@@ -12,7 +12,7 @@ current_path = os.path.dirname(__file__)
 parent_path = os.path.join(current_path, "../../")
 sys.path.append(os.path.abspath(parent_path))
 
-from common.utils.configs import ATARI_CONFIGS, CONFIGS  # noqa: E402
+from common.utils.config_utils import get_env_config  # noqa: E402
 
 
 def parse_args():
@@ -34,34 +34,9 @@ def parse_args():
     return args
 
 
-def get_env_config(env_name: str) -> dict:
-    """
-    Retrieves the configuration for a given environment  name.
-
-    Args:
-        env_name: The short name of the environment (e.g., "pong").
-
-    Returns:
-        A dictionary containing the environment's configuration.
-
-    Raises:
-        ValueError: If the short name is not found in the configs.
-    """
-    if env_name.lower() in ATARI_CONFIGS:
-        return ATARI_CONFIGS[env_name.lower()]
-
-    if env_name.lower() in CONFIGS:
-        return CONFIGS[env_name.lower()]
-
-    raise ValueError(
-        f"Unknown environment: '{env_name}'. "
-        f"Available environments: {list(ATARI_CONFIGS.keys()) + list(CONFIGS.keys())}"
-    )
-
-
 def main(args):
     agent_number = args.agent
-    env_config = get_env_config(args.env)
+    env_config = get_env_config(args.env, include_atari=True)
 
     env_id = env_config["env_id"]
     env_name = env_id.split("/")[-1]
@@ -73,14 +48,9 @@ def main(args):
     agent_config = AgentConfig.from_dict(params)
     # Overwrite seed
     agent_config.seed = args.seed
-    solved_threshold = env_config.get("solved_reward", 100)
-    max_reward = env_config.get("max_reward", 100)
-    min_reward = env_config.get("min_reward", -100)
 
     # Create the agent
-    agent: DQNBase = registry.create_agent(
-        agent_number, env_id, agent_config, solved_threshold, is_atari, min_reward, max_reward
-    )
+    agent: DQNBase = registry.create_agent(agent_number, env_id, agent_config, env_config, is_atari)
 
     save_path = os.path.join("results", agent.get_name(), env_name)
     os.makedirs(save_path, exist_ok=True)
