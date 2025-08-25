@@ -1,4 +1,5 @@
 import dataclasses
+import json
 
 # --- Default algorithm hyperparameters ---
 # These are common values from DQN literature, used for most games unless specified otherwise.
@@ -115,55 +116,38 @@ class AgentConfig:
 
     def __post_init__(self):
         """Calculate eps_decay after initialization with the actual parameter values"""
-        self.eps_decay = (self.max_epsilon - self.min_epsilon) / self.epsilon_decay_steps
+        if self.epsilon_decay_steps > 0:
+            self.eps_decay = (self.max_epsilon - self.min_epsilon) / self.epsilon_decay_steps
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> "AgentConfig":
         """
         Create an AgentConfig instance from a dictionary configuration.
-
-        Args:
-            config_dict: Dictionary containing configuration parameters
-
-        Returns:
-            AgentConfig instance with values from the dictionary
-
-        Example:
-            config = AgentConfig.from_dict(DEFAULT_ATARI_PARAMS)
-            config = AgentConfig.from_dict(DEFAULT_CLASSIC_PARAMS)
         """
-        # Create a copy of the input dict to avoid modifying the original
-        params = config_dict.copy()
-
-        # Convert values to appropriate types and handle int() expressions
-        if "max_steps" in params:
-            params["max_steps"] = int(params["max_steps"])
-        if "memory_size" in params:
-            params["memory_size"] = int(params["memory_size"])
-        if "learning_starts" in params:
-            params["learning_starts"] = int(params["learning_starts"])
-        if "epsilon_decay_steps" in params:
-            params["epsilon_decay_steps"] = int(params["epsilon_decay_steps"])
-        if "beta_increase_steps" in params:
-            params["beta_increase_steps"] = int(params["beta_increase_steps"])
-
-        # Filter out any keys that don't exist in the dataclass
-        import inspect
-
-        valid_fields = set(inspect.signature(cls).parameters.keys())
-        filtered_params = {k: v for k, v in params.items() if k in valid_fields}
+        # Filter out any keys from the dictionary that are not fields in this dataclass
+        valid_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered_params = {k: v for k, v in config_dict.items() if k in valid_fields}
 
         return cls(**filtered_params)
+
+    # --- NEW METHOD ---
+    @classmethod
+    def from_json(cls, file_path: str) -> "AgentConfig":
+        """
+        Create an AgentConfig instance from a JSON file.
+
+        Args:
+            file_path: Path to the JSON configuration file.
+
+        Returns:
+            AgentConfig instance with values from the JSON file.
+        """
+        with open(file_path, "r") as f:
+            config_dict = json.load(f)
+        return cls.from_dict(config_dict)
 
     def to_dict(self) -> dict:
         """
         Convert the AgentConfig instance to a dictionary.
-
-        Returns:
-            Dictionary containing all configuration parameters
-
-        Example:
-            config = AgentConfig()
-            config_dict = config.to_dict()
         """
         return dataclasses.asdict(self)

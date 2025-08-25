@@ -288,8 +288,6 @@ class AgentDQN(DQNBase):
 
     def train(self, max_steps: int = 100000, timeout: float = None):
         obs, _ = self.env.reset()
-        if self.is_atari:
-            obs = self.auto_fire()
 
         pbar = tqdm(range(max_steps), desc="Training")
 
@@ -302,7 +300,6 @@ class AgentDQN(DQNBase):
             next_obs, reward, terminated, truncated, info = self.env.step(action)
             done = terminated or truncated
 
-            clipped_reward = self.clip_reward(reward) if self.is_atari else reward
             # We are no more adding each experience tuple to the memory, instead we are adding to the memory:
             # - s_t -- Start state
             # - a_t -- Action that was taken
@@ -310,7 +307,7 @@ class AgentDQN(DQNBase):
             # - done_{t+n+1} -- Whether or not the s_{t+n+1} was terminal or not
             # - n -- number of actual steps that were taken (because the agent can end the episode in steps less than N)
             # So, add a single experience tuple into a separate buffer for futher post-processing
-            self.n_step_buffer.append((obs, action, clipped_reward, next_obs, terminated))
+            self.n_step_buffer.append((obs, action, reward, next_obs, terminated))
 
             # If the buffer has enough steps process data and store it into memory
             if len(self.n_step_buffer) == self.n_step_return:
@@ -348,8 +345,6 @@ class AgentDQN(DQNBase):
                         break
 
                 obs, _ = self.env.reset()
-                if self.is_atari:
-                    obs = self.auto_fire()
             else:
                 obs = next_obs
             # Log out the metrics

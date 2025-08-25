@@ -120,8 +120,6 @@ class AgentDQN(DQNBase):
 
     def train(self, max_steps: int = 100000, timeout: float = None):
         obs, _ = self.env.reset()
-        if self.is_atari:
-            obs = self.auto_fire()
 
         pbar = tqdm(range(max_steps), desc="Training", postfix={"episde": 0, "mean_reward": "N/A", "avg_loss": "N/A"})
 
@@ -160,8 +158,6 @@ class AgentDQN(DQNBase):
                         break
 
                 obs, _ = self.env.reset()
-                if self.is_atari:
-                    obs = self.auto_fire()
             else:
                 obs = next_obs
             # Log out the metrics

@@ -20,7 +20,7 @@ parent_path = os.path.join(current_path, "../../../")
 sys.path.append(os.path.abspath(parent_path))
 
 from common.base_agent import BaseAgent  # noqa: E402
-from common.utils.atari_utils import auto_fire, clip_reward, get_atari_env  # noqa: E402
+from common.utils.atari_utils import clip_reward, get_atari_env  # noqa: E402
 
 
 class DQNBase(BaseAgent):
@@ -158,9 +158,6 @@ class DQNBase(BaseAgent):
         """Implements the DeepMind reward clipping. Turn all reward either to +1 or -1"""
         return clip_reward(reward)
 
-    def auto_fire(self):
-        return auto_fire(self.env)
-
     def save(self, save_path: str):
         """
         Save online model for later evaluation
@@ -242,8 +239,6 @@ class DQNBase(BaseAgent):
         rewards = []
         for _ in range(self.evaluation_episodes):
             state, _ = self.env.reset()
-            if self.is_atari:
-                state = self.auto_fire()
             done = False
             total_reward = 0
 
