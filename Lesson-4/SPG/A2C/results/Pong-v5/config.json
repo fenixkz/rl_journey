@@ -1,0 +1,14 @@
+{
+    "num_envs": 5,
+    "gamma": 0.99,
+    "lr": 0.0005,
+    "critic_scale": 0.5,
+    "hidden_dim": 64,
+    "use_normalization": true,
+    "use_entropy": true,
+    "entropy_coef": 0.01,
+    "max_steps": 10000000.0,
+    "num_steps": 20,
+    "gae_lambda": 0.95,
+    "tau": 0.05
+}
