@@ -1,0 +1,19 @@
+{
+    "num_envs": 16,
+    "gamma": 0.99,
+    "lr": 0.0005,
+    "critic_scale": 0.5,
+    "hidden_dim": 512,
+    "use_normalization": true,
+    "use_entropy": true,
+    "entropy_coef": 0.01,
+    "max_steps": 10000000.0,
+    "num_steps": 128,
+    "gae_lambda": 0.95,
+    "tau": 0.05,
+    "num_mini_batches": 4,
+    "clip_epsilon": 0.2,
+    "update_epochs": 5,
+    "anneal_lr": false,
+    "clip_values": false
+}
