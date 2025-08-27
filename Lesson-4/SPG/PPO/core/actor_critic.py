@@ -16,7 +16,12 @@ class Actor(nn.Module):
         self.fc2 = nn.Linear(hidden_size, hidden_size // 2)
         self.fc3 = nn.Linear(hidden_size // 2, hidden_size // 4)
         self.fc_out = nn.Linear(hidden_size // 4, action_space)
-        self.relu = nn.ReLU()
+        # From implementation details:
+        """
+        Many successful PPO implementations use `tanh` as the activation function
+        in the hidden layers, as it can help keep network activations within a bounded range.
+        """
+        self.tanh = nn.Tanh()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._init_weights()
 
@@ -32,9 +37,9 @@ class Actor(nn.Module):
             state = torch.FloatTensor(state).to(self.device)
         if state.ndim == 1:
             state = state.unsqueeze(0)
-        x = self.relu(self.fc1(state))
-        x = self.relu(self.fc2(x))
-        x = self.relu(self.fc3(x))
+        x = self.tanh(self.fc1(state))
+        x = self.tanh(self.fc2(x))
+        x = self.tanh(self.fc3(x))
         logits = self.fc_out(x)
         return logits
 
@@ -50,7 +55,7 @@ class Critic(nn.Module):
         self.fc2 = nn.Linear(hidden_size, hidden_size // 2)
         self.fc3 = nn.Linear(hidden_size // 2, hidden_size // 4)
         self.fc_out = nn.Linear(hidden_size // 4, 1)
-        self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._init_weights()
 
@@ -66,9 +71,9 @@ class Critic(nn.Module):
             state = torch.FloatTensor(state).to(self.device)
         if state.ndim == 1:
             state = state.unsqueeze(0)
-        x = self.relu(self.fc1(state))
-        x = self.relu(self.fc2(x))
-        x = self.relu(self.fc3(x))
+        x = self.tanh(self.fc1(state))
+        x = self.tanh(self.fc2(x))
+        x = self.tanh(self.fc3(x))
         value = self.fc_out(x)
         return value
 
@@ -100,11 +105,11 @@ class ActorCriticCNN(nn.Module):
         # Shared CNN backbone for feature extraction
         self.backbone = nn.Sequential(
             nn.Conv2d(in_channels, 32, kernel_size=8, stride=4),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Flatten(),
         )
 
@@ -114,13 +119,11 @@ class ActorCriticCNN(nn.Module):
 
         # --- Actor Head ---
         self.actor_head = nn.Sequential(
-            nn.Linear(feature_size, hidden_size), nn.ReLU(), nn.Linear(hidden_size, action_space)
+            nn.Linear(feature_size, hidden_size), nn.Tanh(), nn.Linear(hidden_size, action_space)
         )
 
         # --- Critic Head ---
-        self.critic_head = nn.Sequential(
-            nn.Linear(feature_size, hidden_size), nn.ReLU(), nn.Linear(hidden_size, 1)  # Outputs a single value
-        )
+        self.critic_head = nn.Sequential(nn.Linear(feature_size, hidden_size), nn.Tanh(), nn.Linear(hidden_size, 1))
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._init_weights()

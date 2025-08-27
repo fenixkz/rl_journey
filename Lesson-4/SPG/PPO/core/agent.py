@@ -243,7 +243,6 @@ class PPOAgent(BaseAgent):
 
     def train(self, max_steps: int = 10000):
         pbar = tqdm(range(max_steps), desc="Training")
-
         states, _ = self.env.reset()
 
         # In the beginning set the initial state
