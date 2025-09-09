@@ -1,0 +1,17 @@
+{
+    "num_steps": 1000000.0,
+    "memory_size": 1000000.0,
+    "batch_size": 256,
+    "tau": 0.005,
+    "gamma": 0.99,
+    "evaluation_period": 5000,
+    "evaluation_episodes": 10,
+    "num_envs": 16,
+    "actor_lr": 0.0003,
+    "critic_lr": 0.0003,
+    "alpha_lr": 0.0003,
+    "init_alpha": 0.2,
+    "target_entropy": null,
+    "actor_update_rate": 2,
+    "auto_entropy_tuning": true
+}

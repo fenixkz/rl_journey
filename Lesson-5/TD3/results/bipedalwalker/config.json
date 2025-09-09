@@ -1,0 +1,14 @@
+{
+    "num_steps": 1000000.0,
+    "exploration_noise": 0.2,
+    "memory_size": 1000000.0,
+    "batch_size": 256,
+    "tau": 0.005,
+    "gamma": 0.99,
+    "evaluation_period": 5000,
+    "evaluation_episodes": 10,
+    "policy_noise": 0.2,
+    "policy_noise_bound": 0.5,
+    "num_envs": 16,
+    "actor_update_rate": 2
+}
