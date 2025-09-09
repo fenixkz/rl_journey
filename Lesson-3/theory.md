@@ -37,9 +37,7 @@ We have seen something similar in our first lesson when we used neural networks 
 9. [Conclusion](#conclusion)
 
 
-## Deep Learning
-
-
+# Deep Learning
 
 Thanks to the advancements in Deep Learning (DL), people started looking at the conjunction between RL and DL. The fundamental question was: if neural networks are so powerful, can they also approximate Q-values? Basically, let the network take as input state representation and output Q-values for all possible actions. And the short answer: they can *but with many hacks*!
 
@@ -56,7 +54,7 @@ Moreover, how can we decide which actions are the best if we do not have any est
 Basically, what I am trying to say that it makes much more sense to let the network output not a probability distribution over action space, but do a regression task. Given the state $s$ as the input, the network outputs the estimates of Q-values for each action. As these values are real numbers, this task is inherently of a regression type.
 
 
-## Deep Q-Learning
+# Deep Q-Learning
 
 Okay, let's modify a bit our notion of Q-values to $Q(s, a; \theta)$ where $\theta$ are parameters of the network (read it as Q-values obtained from the neural network with parameters $\theta$). We can think of it as a function that takes state $s$ as input and outputs Q-value for all actions. The idea is to train the network to approximate $Q(s, a)$ for all possible actions.
 
@@ -105,9 +103,21 @@ L(\theta) = \frac{1}{2} \left( Q^*(s_t, a_t) - Q(s_t, a_t; \theta_t) \right)^2 \
 Q^*(s_t, a_t) = r_{t+1} + \gamma \max_{a'} Q(s_{t+1}, a'; \theta_t)
 $$
 
-So, our network tries to make the estimate of $Q(s_t, a_t)$ closer to $Q^*(s_t, a_t)$. But look carefully at the equation of $Q^*(s_t, a_t)$, to calculate this value we are using the estimates of the **same** network but of the next state: $\max_{a'} Q(s_{t+1}, a'; \theta_t)$. The neural network is not that all-mighty, changing params to better estimate $Q(s_t, a_t)$ will affect estimation of $Q(s_{t+1}, a^*)$. So, the network is trying to move $Q(s_t, a_t)$ to its target value, but the target value is also moving. On the next iteration, it tries again to move its estimate toward another target and this target also moves.
+So, our network tries to make the estimate of $Q(s_t, a_t)$ closer to $Q^*(s_t, a_t)$. But look carefully at the equation of $Q^*(s_t, a_t)$, to calculate this value we are using the estimates of the **same** network but of the next state: $\max_{a'} Q(s_{t+1}, a'; \theta_t)$. The neural network is not that all-mighty, changing params to better estimate $Q(s_t, a_t)$ will indirectly affect estimation of $Q(s_{t+1}, a^*)$. So, the network is trying to move $Q(s_t, a_t)$ to its target value, but the target value is also moving. On the next iteration, it tries again to move its estimate toward another target and this target also moves.
 
-It is basically like a dog chasing its own tail.
+To remind you, Q-learning is trying to learn the optimal Q-value, $Q^*(s,a)$, for all state-actions. The optimal value is most probably unique and constant for a given state-action for a given problem. Let's for example review what happens if we use one sample to learn $Q(s,a)$.
+
+Imagine that the optimal Q-value is 10. The current estimate is 9 and the estimate for the next state optimal Q-value is 0.5. We collected one sample with immediate reward = 10.
+
+$$
+y_t = r_t + \gamma \cdot \max_a{Q(s_{t+1}, a)} \\
+y_t = 10 + 0.99 \cdot 0.5 = 10.495
+$$
+
+Now we compute loss and backpropogate, as a result our estimate has changed from 9 to, let's say 9.1. Now the main problem is that changing neural network's parameters, $\theta$, trying to improve estimate of $Q(s_t, a_t)$ will inevitable indirectly change the estimate of $Q(s_{t+1}, a)$. So, in this example $Q^*(s_{t+1})$ would also change to something like 0.6. We are going to the next iteration and compute target again, the target on this iteration would be $y_t = 10.594$.
+
+If we were to run thousands of epochs on this single sample, each time $y_t$ would be different from the last time. The estimate would move to different values at each epoch, and in the end it will never converge to 10. Concisely, it is basically like a dog running around chasing its own tail.
+
 We did not see this issue when we were studying Q-learning, simply because changing one entry in the table does not affect another entry, they are independent. But when we are using the same network for both estimates, then we are screwed.
 
 ## Solution
@@ -154,7 +164,31 @@ So, the pseudo-code for DQN is
 
 Looks quite simple right? Because in fact it is. But don't be illusioned by its simplicity, this algorithm was able to surpass humans in some games. Furthermore, it was a first example of Reinforcement Learning being able to deal with high-dimensional state space problems. This led to many other advancements in the field.
 
-## Advancements of DQN
+---
+
+Before we explore the variants of DQN, I want to discuss with you why only Q-learning update rule is used in all of the variants. Why nobody utilizes SARSA's update rule?
+
+DQN uses a replay buffer, which means that the approach is heavily off-policy. The sample that we collect from the Replay Buffer - `<s, a, r, s'>` - may be generated by a very old version of our network and the current network can be several update steps ahead of it.
+
+SARSA, on the other hand, is more on-policy. It evaluates what next action the current policy would have taken, and then uses its Q-value for an update. As we had to use a replay buffer to break temporal correlation, then it means that we would have needed to store `<s, a, r, s', a'>` samples. Updating our current network (which might be hundreds of update steps ahead) with the sample generated by some older network (which can be hundreds of update steps behind the current network) can be bad. So, imagine that during collection the old policy chose $a = 1$ in $s_1$. That version of the policy did not know yet, that this action is actually bad and action $a = 2$ is much, much better, i.e. $Q(s_1, a = 1) < Q(s_1, a = 2)$. The current policy knows it, so its estimate of a preceding state-action pair, $Q(s_0, a_0)$, is directly linked to the $Q(s_1, a = 2)$. But this sample would then make the current estimate worse, all because the new update would move it closer to $Q(s_1, a = 1)$. That is dangerous and de-stabilizing.
+
+Some of you might have asked: "Okay, if storing the next action is dangerous because it was generated by old, dumber policy, why we can't just re-compute the next action with a current policy?" That is a good question, let's try to discuss it.
+
+The problem can be easily eliminated if we stored originally `<s, a, r, s'>` tuples, and then computed the next action using the current policy. This way our estimates would be always up-to-date. However, the new problem arises all because of our epsilon-greedy policy.
+
+So, because of our epsilon-greedy policy the action that we pick for the next state might be non-optimal. Again same example as above. The estimate for $Q(s_0, a_0)$ is currently good because it is linked to $Q(s_1, a = 2)$. Imagine that because of the epsilon, we have sampled action $a = 1$ for the next state $s_1$. Same scenario, the estimate gets worse and our training is less stable. But didn't it work same way in tabular SARSA and yet it was effective? Yes, because in tabular SARSA we were not using neural networks! It is extermely hard for a neural network to understand the true estimate for $Q(s_0, a_0)$ when every update step the TD-target for it changes! There is too much variance. In the first update rule the TD-target was linked to $Q(s_1, a = 2)$, so the network tried to move it closer to it. In the second, it was linked to $Q(s_1, a = 1)$, so the network tried to move it closer to it. In the third, it was linked to $Q(s_1, a = 3)$ as so on. All because the action were picked with some random policy.
+
+Okay, but what if we were to turn off the epsilon-greedy policy for evaluating the next action (choose only the greedy action)? Then, there would be less variance? Yes, that is true. The greedy action is the $max_a Q$, then it means that is the definition of Q-learning update rule!
+
+So, vanilla SARSA is not really compatible with DQN. But what about EV-SARSA? By computing the expectation of all next action Q-values, we will also reduce the variance? Absolutely true.
+
+Well, for starters we have to understand that when the epsilon is zero, i.e. the agent is acting only greedy, then the expected value of the next state $V(s')$ is exactly $\max_a{Q(s',a)}$. Because there is 100% probability of picking the greedy action and zero probability of picking non-optimal one. So, EV-SARSA would be different from Q-learning only when the epsilon is high.
+
+When the epsilon is high, both Q-learning and EV-SARSA suffer from high variance. The high variance comes from the fact that the agent each time acts randomly, so the total return after executing action $a$ in state $s$ will be different every time the agent tries it. The neural network tries to learn the best estimate for $(s,a)$ pair and to learn it needs to know its true value, but the ground-truth values you feed it are different every time. How is it even supposed to learn? In Q-learning DQN it is resolved over time when you decrease the epsilon to gradually decrease the variance, because when the epsilon is low the trajectory the agent takes is more predictable (it acts greedily or deterministically).
+
+In EV-SARSA you would do the same, but the problem is that EV-SARSA amplifies the amount of noise during exploration phase. The amplification comes from the fact that for the next state value you consider all possible actions to calculate the expected value. In other words you increase the total number of possible trajectories that the agent might end up with starting from the next state. It means there is more variance and estimates that the network computes become noisier. This is less stable than Q-learning.
+
+# Advancements of DQN
 
 This paper was introduced in 2013, so naturally people started to improve it. Here I will mention some advancements I think that are interesting. There are others that are omitted here, but I think this lesson gives you enough of foundation to understand them on your own :)
 
@@ -200,20 +234,9 @@ y_j = r_{j+1} + \gamma Q(s_{j+1}, \arg\max_{a'} Q(s_{j+1}, a'; \theta_{online});
 y_j = r_{j+1}
 $$
 
-
 **Why does this work?** The online network might still pick an action whose value it overestimates. However, **it's much less likely** that the separate, slightly older target network will also happen to overestimate the value of that same specific action. By separating selection and evaluation across the two networks, we break the feedback loop that created the optimism. This leads to more accurate Q-value estimates and, as a result, more stable and better-performing agents.
 
 This small change to the target calculation often provides a significant performance boost and has become a standard technique in modern value-based reinforcement learning.
-
----
-
-If you remember, in Q-learning, that problem was a motivation for exploring other update rules and coming to SARSA. As we are just reviewing the history of innovations of DQN, I cannot accurately tell you why they have not tried using SARSA or EV-SARSA update rule to try to solve the overestimation problem. What I can do is provide my opinion:
-
-DQN uses a Replay Buffer, which means that the approach is heavily off-policy. The sample that we collect from the Replay Buffer - `<s, a, r, s'>` - may be generated by a very old version of our network and the current network can be several update steps ahead of it.
-
-SARSA, on the other hand, is more on-policy. It evaluates what next action the current policy would have taken, and then uses its Q-value for update. As we had to use a Replay Buffer to break temporal correlation, then it means that we would have needed to store `<s, a, r, s', a'>` samples. Updating our current network (which might be hundreds of update steps ahead) with the sample generated by some older network (which can be hundreds of update steps behind the current network) can be bad. Think of it like you being an adult asking advice from yourself when you were two years old.
-
-In fact it means that to effectively use replay buffer we have to use only off-policy algorithms, like Q-learning.
 
 ## Prioritized Experience Replay
 

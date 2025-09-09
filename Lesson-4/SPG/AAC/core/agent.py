@@ -42,7 +42,9 @@ class AACAgent(BaseAgent):
         env = gym.make(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         assert len(env.observation_space.shape) == 1, "AAC supports for now only Box2D envs"
-
+        assert isinstance(
+            env.action_space, gym.spaces.Discrete
+        ), "Detected non-discrete action space, this class works only with discrete action space problems!"
         # Initialize the base class
         super().__init__(env=env, solved_threshold=solved_threshold, seed=seed)
 

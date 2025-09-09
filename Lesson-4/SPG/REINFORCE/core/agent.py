@@ -34,7 +34,9 @@ class REINFORCEAgent(BaseAgent):
         env = gym.make(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         assert len(env.observation_space.shape) == 1, "REINFORCE supports for now only Box2D envs"
-
+        assert isinstance(
+            env.action_space, gym.spaces.Discrete
+        ), "Detected non-discrete action space, this class works only with discrete action space problems!"
         # Initialize the base class
         super().__init__(env=env, solved_threshold=solved_threshold, seed=seed)
 
@@ -131,9 +133,7 @@ class REINFORCEAgent(BaseAgent):
 
             if self.use_entropy:
                 entropies = torch.stack(entropies).to(self.device)
-                loss -= (
-                    self.entropy_coef * entropies.sum()
-                )  # sum or mean? sum is more common in literature, but mean is also used
+                loss -= self.entropy_coef * entropies.sum()
 
             # Backpropagation
             self.optimizer.zero_grad()

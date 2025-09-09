@@ -36,6 +36,80 @@ CONFIGS = {
     },
 }
 
+CONTINUOUS_CONFIGS = {
+    "pendulum": {
+        "env_id": "Pendulum-v1",
+        "solved_reward": -150.0,
+        "description": "Swing up an inverted pendulum and keep it upright",
+        "min_reward": -1800.0,  # Worst possible performance over 200 steps
+        "max_reward": 0.0,  # Perfect performance (zero cost)
+    },
+    "mountaincar_continuous": {
+        "env_id": "MountainCarContinuous-v0",
+        "solved_reward": 90.0,
+        "description": "Get car to top of mountain using momentum (continuous action)",
+        "min_reward": -100.0,  # Failing to reach the goal
+        "max_reward": 105.0,  # Reaching the goal very efficiently
+    },
+    "lunarlander_continuous": {
+        "env_id": "LunarLander-v3",  # Note: gym.make("LunarLander-v3", continuous=True)
+        "solved_reward": 200.0,
+        "description": "Land spacecraft safely on moon surface (continuous control)",
+        "min_reward": -300.0,  # Crashing and fuel consumption
+        "max_reward": 300.0,  # Perfect landing with bonuses
+    },
+    "bipedalwalker": {
+        "env_id": "BipedalWalker-v3",
+        "solved_reward": 300.0,
+        "description": "Teach a 2D bipedal robot to walk",
+        "min_reward": -150.0,  # Crashing early
+        "max_reward": 350.0,  # Very fast and stable walking
+    },
+    "bipedalwalker_hardcore": {
+        "env_id": "BipedalWalkerHardcore-v3",
+        "solved_reward": 300.0,
+        "description": "Teach a 2D bipedal robot to walk over difficult terrain",
+        "min_reward": -200.0,  # Crashing or stumbling on obstacles
+        "max_reward": 350.0,  # Very efficient run over all obstacles
+    },
+    # --- MuJoCo Environments ---
+    "halfcheetah": {
+        "env_id": "HalfCheetah-v5",
+        "solved_reward": 8000.0,  # No official threshold, benchmark for high score
+        "description": "Make a 2D cheetah-like robot run as fast as possible",
+        "min_reward": -500.0,  # Falling over and incurring control costs
+        "max_reward": 16000.0,  # Representative of top-performing agents
+    },
+    "hopper": {
+        "env_id": "Hopper-v5",
+        "solved_reward": 3500.0,
+        "description": "Make a one-legged robot hop forward without falling",
+        "min_reward": -50.0,  # Falling over immediately
+        "max_reward": 4000.0,  # A very good hopping performance
+    },
+    "walker2d": {
+        "env_id": "Walker2d-v5",
+        "solved_reward": 4500.0,
+        "description": "Teach a 2D bipedal robot to walk forward",
+        "min_reward": -50.0,  # Falling over immediately
+        "max_reward": 6000.0,  # A very good walking performance
+    },
+    "ant": {
+        "env_id": "Ant-v5",
+        "solved_reward": 6000.0,
+        "description": "Teach a four-legged 'ant' robot to walk forward",
+        "min_reward": -100.0,  # Flipping over and incurring costs
+        "max_reward": 8000.0,  # A strong walking performance
+    },
+    "humanoid": {
+        "env_id": "Humanoid-v5",
+        "solved_reward": 6000.0,
+        "description": "Make a 3D simulated human model walk forward",
+        "min_reward": 0.0,  # Falling over immediately
+        "max_reward": 10000.0,  # A very strong, stable walking performance
+    },
+}
+
 ATARI_CONFIGS = {
     # --- Special case for Pong with tuned hyperparameters ---
     "pong": {

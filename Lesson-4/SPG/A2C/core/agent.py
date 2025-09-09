@@ -24,7 +24,7 @@ def print_tensor(name, tensor):
 
 class A2CAgent(BaseAgent):
     """
-    Advantage Actor-Critic (AAC) with Generalized Advantage Estimate (GAE)
+    Asynchronous Advantage Actor-Critic (A2C) with Generalized Advantage Estimate (GAE)
     """
 
     def __init__(
@@ -53,7 +53,9 @@ class A2CAgent(BaseAgent):
         env_fns = [lambda: gym.wrappers.RecordEpisodeStatistics(make(env_id)) for _ in range(num_envs)]
         # Now env is not a single, but multiple envs
         env = gym.vector.SyncVectorEnv(env_fns)
-
+        assert isinstance(
+            env.single_action_space, gym.spaces.Discrete
+        ), "Detected non-discrete action space, this class works only with discrete action space problems!"
         # Initialize the base class
         super().__init__(env=env, solved_threshold=solved_threshold, seed=seed)
 

@@ -16,7 +16,7 @@ parent_path = os.path.join(current_path, "../../../")
 sys.path.append(os.path.abspath(parent_path))
 
 from common.base_agent import BaseAgent  # noqa: E402
-from common.utils.atari_utils import auto_fire, clip_reward, get_atari_env  # noqa: E402
+from common.utils.atari_utils import clip_reward, get_atari_env  # noqa: E402
 
 
 @dataclass
@@ -176,8 +176,6 @@ class ESAgent(BaseAgent):
         # Collect reference batch from random episodes
         for _ in range(self.vbn_batch_size):
             state, _ = self.env.reset()
-            if self.is_atari:
-                state = auto_fire(self.env)
             reference_states.append(state)
 
             # Take a few random steps to get diverse states
@@ -306,8 +304,6 @@ class ESAgent(BaseAgent):
             state, _ = self.env.reset()
         else:
             state, _ = self.env.reset(seed=seed)
-        if self.is_atari:
-            state = auto_fire(self.env)
         done = False
         total_reward = 0
         while not done:

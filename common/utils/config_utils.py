@@ -1,4 +1,4 @@
-from common.utils.configs import ATARI_CONFIGS, CONFIGS
+from common.utils.configs import ATARI_CONFIGS, CONFIGS, CONTINUOUS_CONFIGS
 
 
 def get_env_config(env_name: str, include_atari: bool = True) -> dict:
@@ -20,4 +20,10 @@ def get_env_config(env_name: str, include_atari: bool = True) -> dict:
         return CONFIGS[env_name.lower()]
     if include_atari and env_name.lower() in ATARI_CONFIGS:
         return ATARI_CONFIGS[env_name.lower()]
+    raise ValueError(f"Unknown environment: '{env_name}'. Please, double check the name.")
+
+
+def get_cont_env_config(env_name: str) -> dict:
+    if env_name.lower() in CONTINUOUS_CONFIGS:
+        return CONTINUOUS_CONFIGS[env_name.lower()]
     raise ValueError(f"Unknown environment: '{env_name}'. Please, double check the name.")

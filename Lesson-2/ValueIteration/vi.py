@@ -1,8 +1,10 @@
 import gymnasium as gym
 import numpy as np
+from ttt import TicTacToeEnv
 
 # Define the env
 env = gym.make("FrozenLake-v1", desc=None, map_name="8x8", is_slippery=True)
+env = TicTacToeEnv()
 
 # Get number of states (8x8=64)
 n_states = env.observation_space.n
@@ -76,3 +78,70 @@ for i in range(n_episodes):
     rewards.append(total_reward)
 
 print(f"Average reward per {n_episodes} is {np.mean(rewards)}")
+
+# --- 2. PLAY AGAINST THE TRAINED AGENT ---
+
+play_again = "y"
+while play_again.lower() == "y":
+    state, _ = env.reset()
+    terminated = False
+    print("\n--- New Game: You are 'O', the AI is 'X' ---")
+    env.render()
+
+    while not terminated:
+        # --- AI's Turn ---
+        current_state = env._board_to_state(env.board)
+        ai_action = choose_action(current_state)
+
+        # Apply AI's action to the board
+        row, col = divmod(ai_action, 3)
+        if env.board[row, col] != 0:
+            print("Error: AI tried to play on an occupied cell. This shouldn't happen.")
+            break
+        env.board[row, col] = env.agent_player
+
+        print(f"AI plays at position {ai_action}:")
+        env.render()
+
+        # Check for AI win or draw
+        if env._check_winner(env.board, env.agent_player):
+            print("AI wins!")
+            terminated = True
+            continue
+        if env._is_draw(env.board):
+            print("It's a draw!")
+            terminated = True
+            continue
+
+        # --- Human's Turn ---
+        human_action = -1
+        while human_action == -1:
+            try:
+                move = int(input("Enter your move (0-8): "))
+                if 0 <= move <= 8:
+                    row, col = divmod(move, 3)
+                    if env.board[row, col] == 0:
+                        human_action = move
+                    else:
+                        print("That cell is already occupied. Try again.")
+                else:
+                    print("Invalid input. Please enter a number between 0 and 8.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+        # Apply human's action
+        row, col = divmod(human_action, 3)
+        env.board[row, col] = env.opponent_player
+        env.render()
+
+        # Check for human win or draw
+        if env._check_winner(env.board, env.opponent_player):
+            print("Congratulations, you win!")
+            terminated = True
+        if env._is_draw(env.board) and not terminated:
+            print("It's a draw!")
+            terminated = True
+
+    play_again = input("Play again? (y/n): ")
+
+print("Thanks for playing!")

@@ -1,34 +1,33 @@
 
 
-# Introduction to Reinforcement Learning 
+# Introduction to Reinforcement Learning
 
-All right, welcome to my repository! In this repo I try to explain Reinforcement Learning to people who are interested in this field, but get scared by the massive amount of equations. I try to make the learning as intuitive as possible to create a deeper understanding of the topic. I hope that by the end of all lessons, you will understand what RL is, more importantly how it works, and how it can be applied. Okay, shall we start?
+All right, welcome to my repository! Here I try to explain Reinforcement Learning to people who are interested in this field, but get scared by the massive amount of equations. I try to make the learning as intuitive as possible to create a deeper understanding of the topic. I hope that by the end of all lessons, you will understand what RL is, more importantly how it works, and how it can be applied. Okay, shall we start?
 
 # Table of Contents
 
-1. [Introduction to Reinforcement Learning](#introduction-to-reinforcement-learning)
-2. [Reinforcement Learning (RL)](#reinforcement-learning-rl)
-3. [Notation](#notation)
-4. [Example](#example)
-5. [Cross Entropy Method (CEM)](#cross-entropy-method-cem)
+1. [Reinforcement Learning (RL)](#reinforcement-learning-rl)
+2. [Notation](#notation)
+3. [Example](#example)
+4. [Cross Entropy Method (CEM)](#cross-entropy-method-cem)
    - [From Dictionaries to Neural Networks: Why We Need a Smarter Policy](#from-dictionaries-to-neural-networks-why-we-need-a-smarter-policy)
    - [The CEM Algorithm in Detail](#the-cem-algorithm-in-detail)
    - [Problems with CEM](#problems-with-cem)
-6. [A Different Approach: Evolution Strategies (ES)](#a-different-approach-evolution-strategies-es)
+5. [A Different Approach: Evolution Strategies (ES)](#a-different-approach-evolution-strategies-es)
    - [The Core Idea: Learning Through Evolution](#the-core-idea-learning-through-evolution)
    - [The ES Algorithm Step by Step](#the-es-algorithm-step-by-step)
    - [Why is ES a Powerful Idea?](#why-is-es-a-powerful-idea)
    - [Problems with ES](#problems-with-es)
-7. [Other Black-Box and Evolutionary Approaches](#other-black-box-and-evolutionary-approaches)
+6. [Other Black-Box and Evolutionary Approaches](#other-black-box-and-evolutionary-approaches)
    - [Genetic Algorithms (GAs)](#genetic-algorithms-gas)
    - [Particle Swarm Optimization (PSO)](#particle-swarm-optimization-pso)
    - [Novelty Search](#novelty-search)
 
 # Reinforcement Learning (RL)
 
-Reinforcement learning is formally a sub-field of Machine Learning (ML). For those who aren't familiar with ML, here's a helpful way to think about it. For long decades practioners used a pre-defined sequence of logical checks to solve problems. For example, a robot on an assembly line is programmed with a precise sequence of movements: pick up part A, rotate 90 degrees, place it on part B. If a part is misaligned, the robot cannot adapt. To improve it people started developing algorithms that would allow machines to change their behavior or in other words to *learn*. 
+Reinforcement learning is formally a sub-field of Machine Learning (ML). For those who aren't familiar with ML, here's a helpful way to think about it. For long decades practioners used a pre-defined sequence of logical checks to solve problems. For example, a robot on an assembly line is programmed with a precise sequence of movements: pick up part A, rotate 90 degrees, place it on part B. If a part is misaligned, the robot cannot adapt. To improve it people started developing algorithms that would allow machines to change their behavior or in other words to *learn*.
 
-Learning does not happen magically; this process requires some data. This data is used by algorithms to develop some rule or some skill that would allow them to work on data that it did not see during training. A classic example is image classification, based on thousands of images containing either a cat or a dog, the algorithm learns the skill of classifying an image as containing either a cat or a dog. It learns this skill very well, because it works even on images that were not given to it during training! 
+Learning does not happen magically; this process requires some data. This data is used by algorithms to develop some rule or some skill that would allow them to work on data that it did not see during training. A classic example is image classification, based on thousands of images containing either a cat or a dog, the algorithm learns the skill of classifying an image as containing either a cat or a dog. It learns this skill very well, because it works even on images that were not given to it during training!
 
 Like other machine learning methods, Reinforcement Learning also uses data to learn a skill. However, what differentiates RL from other ML fields is how this data is collected. For example, in the example we discussed above, the data is gathered by people who manually assign labels to images. Alternatively, in RL people are not involved in the data collection process. Reinforcement learning mimics animal learning - learning by trial and error. To better understand how it is achieved, we need to define the essential components of any RL algorithm.
 
@@ -45,9 +44,9 @@ With all that being said, this is the usual pipeline of any RL algorithm:
 3. In response, the environment transitions to a new state ($s'$) and returns a reward ($r$) for performing that action.
 4. The agent uses this feedback (the reward and new state) to update its decision-making process, aiming to achieve higher rewards in the future.
 
-So, the agent interacts with the environment and stores a sequence of data in the form of: $`<s, a, r, s'>`$. By repeating this process many times, the agent accumulates a total reward which is the sum of all individual rewards. 
+So, the agent interacts with the environment and stores a sequence of data in the form of: $`<s, a, r, s'>`$. By repeating this process many times, the agent accumulates a total reward which is the sum of all individual rewards.
 
-> **The objective of a Reinforcement Learning algorithm is to maximize the possible total reward.**
+> **The objective of a reinforcement learning algorithm is to maximize the possible total reward.**
 
 ## Notation
 
@@ -68,7 +67,7 @@ $$
 J = E_{\tau \sim \pi} [R(\tau)]
 $$
 
-where $\tau$ is a trajectory, i.e. a sequence of states, actions, and rewards that the agent experiences (a rundown of $`<s, a, r, s'>`$ tuples) and $R(\tau)$ is the total reward obtained by the agent in this trajectory. The goal is to find the policy $\pi_\theta$ that maximizes the expected total reward $J$. 
+where $\tau$ is a trajectory, i.e. a sequence of states, actions, and rewards that the agent experiences (a rundown of $`<s, a, r, s'>`$ tuples) and $R(\tau)$ is the total reward obtained by the agent in this trajectory. The goal is to find the policy $\pi_\theta$ that maximizes the expected total reward $J$.
 
 The expression above can be rewritten as:
 
@@ -76,11 +75,11 @@ $$
 J(\theta) = E_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{T} \gamma^t r_{t+1} \right]
 $$
 
-where: $\gamma$ is a constant that controls the importance of future rewards. This value, known as the discount factor, is set between 0 and 1. It decays future rewards exponentially, encouraging the agent to balance immediate reward against long-term possible reward. Think of $\gamma$ as the agent's 'patience'. A $\gamma$ close to 0 creates a 'short-sighted' agent that only cares about the very next reward. A $\gamma$ close to 1 creates a 'far-sighted' agent that values future rewards same as immediate ones.
+where $\gamma$ is a constant that controls the importance of future rewards. This value, known as the discount factor, is set between 0 and 1. It decays future rewards exponentially, encouraging the agent to balance immediate reward against long-term possible reward. Think of $\gamma$ as the agent's 'patience'. A $\gamma$ close to 0 creates a 'short-sighted' agent that only cares about the very next reward. A $\gamma$ close to 1 creates a 'far-sighted' agent that values future rewards same as immediate ones.
 
 ## Example
 
-To reinforce your understanding, let's review a simple and popular example of a Reinforcement Learning problem: the 2D Grid World. We will use this example to assign concrete meaning to the formal notation we've learned.
+To reinforce your understanding, let's review a simple and popular example of a RL problem: the 2D Grid World. We will use this example to assign concrete meaning to the formal notation we've learned.
 
 <p align="center">
   <img src="figures/example.jpg" />
@@ -88,14 +87,14 @@ To reinforce your understanding, let's review a simple and popular example of a 
 
 The agent's goal is to learn how to navigate from a starting position to the goal square, which gives a positive reward. Let's break down how we formally describe this problem.
 
-1. **State (s)**  
+1. **State (s)**
    The state represents the current configuration of the environment. State is also something that the agent bases its action decision process on, so the state should contain enough information. In this grid world, the most direct representation of the state is the agent's location. Think of it: by knowing the current location, it is enough for the agent to decide what it should do next.
 
    **Representation:** We can define each state as a tuple of coordinates: $s = (\text{row}, \text{column})$.
 
    **Example:** If the grid is 4x4 and the agent starts in the top-left corner, the starting state, $s_0$, would be $(0, 0)$. The goal state then is $(3, 3)$.
 
-2. **Action (a)**  
+2. **Action (a)**
    An action is a move the agent can choose to perform. In our grid, the available actions are straightforward.
 
    **Action Space:** The set of all possible actions is $\{\text{Move Left}, \text{Move Right}, \text{Move Up}, \text{Move Down}\}$.
@@ -107,7 +106,7 @@ The agent's goal is to learn how to navigate from a starting position to the goa
    - 2: Move Right
    - 3: Move Down
 
-3. **Reward (r)**  
+3. **Reward (r)**
    The reward is the feedback the environment gives the agent after it performs an action. It tells the agent how good that action was from its previous state.
 
    - **Goal State:** If an action leads the agent to the goal cell (e.g., the one marked +1), it receives a reward of $r = +1$.
@@ -116,18 +115,18 @@ The agent's goal is to learn how to navigate from a starting position to the goa
 
    **Note for Future Problems:** Sometimes, we use a small negative reward for standard moves (e.g., $r = -0.01$). This encourages the agent to find the goal as efficiently as possible, because it loses a tiny amount for every step it "wastes."
 
-4. **Policy ($\pi$)**  
+4. **Policy ($\pi$)**
    The policy is the core of the agent; it's the strategy the agent uses to select an action based on its current state. Its goal is to find the optimal policy - the one that leads to the maximum possible total reward.
 
    - **Function:** A policy is a function that maps states to actions, $\pi(s) \rightarrow a$.
    - **Simple Representation:** For a simple grid, the policy can be a basic lookup table. A Python dictionary is a perfect real-world example of this. We can store the best action to take for each state.
 
-   **Example Policy:**  
+   **Example Policy:**
    `policy = {(0,0): 1, (0,1): 2, (1,1): 1, ...}`
 
    This translates to: "If in state (0,0), perform action 1 (Move Up). If in state (0,1), perform action 2 (Move Right), and so on." The RL algorithm's job is to figure out the best values for this dictionary.
 
-5. **Episodes**  
+5. **Episodes**
    Typically, an RL problem is solved over many episodes. An episode is a single run of the simulation, starting from the initial state and ending when the agent reaches a terminal state.
 
    - **Terminal State:** A terminal state is one that ends the episode. In our example, both the +1 goal cell and the -1 hazard cell are terminal states. When the agent enters one, the episode is over, and it is reset to the starting position to begin a new episode.
@@ -139,17 +138,17 @@ So, the usual pipeline:
 1. The episode starts: the agent receives the start state: $s_t = (0,0)$
 2. It queries its policy what action to perform: $a_t = \pi(s_t)$. In our case, it just looks up the action for that state. In the beginning, when the policy is not trained, we usually assign zeros or some random actions. So, let's say $a_t = 1$
 3. It applies that action to the environment and receives $s_{t+1}, r_{t+1}, \text{done}$. The last element is a boolean flag whether the episode has ended (the next state is terminal). If the episode has ended, we have to start from the beginning. In our example, $s_{t+1} = (1, 0)$; $r_{t+1} = 0$; $\text{done} = \text{False}$
-4. It uses the reward to improve its policy. 
+4. It uses the reward to improve its policy.
 5. It now goes to step 2 to repeat, but instead of using $s_t$ it uses $s_{t+1}$
 
 The collected sequence of data in the form $`<s_t, a_t, r_{t+1}, s_{t+1}, \text{done}>`$ for one episode is what we call a trajectory. One of the possible trajectories the agent could take is:
 
 ```
-<(0,0), 1, 0, (1,0), False> --> 
-<(1,0), 1, 0, (2,0), False> --> 
-<(2,0), 2, 0, (2,1), False> --> 
-<(2,1), 2, 0, (2,2), False> --> 
-<(2,2), 0, 0, (3,2), False> --> 
+<(0,0), 1, 0, (1,0), False> -->
+<(1,0), 1, 0, (2,0), False> -->
+<(2,0), 2, 0, (2,1), False> -->
+<(2,1), 2, 0, (2,2), False> -->
+<(2,2), 0, 0, (3,2), False> -->
 <(3,2), 2, 1, (3,3), True>
 ```
 
@@ -167,8 +166,8 @@ There are many advanced algorithms, but we can start with one of the simplest ye
 
 ---
 
-To build some intuition behind CEM, let's remember the task of learning to classify images based on whether they contain a dog or a cat. You initialize a neural network and then pass an image to it. 
-The network outputs the vector of probabilities, something like `[0.9, 0.1]`, meaning that there is a 90% chance that the image belongs to class 0 (let's say class 0 means that the image contains a dog) 
+To build some intuition behind CEM, let's remember the task of learning to classify images based on whether they contain a dog or a cat. You initialize a neural network and then pass an image to it.
+The network outputs the vector of probabilities, something like `[0.9, 0.1]`, meaning that there is a 90% chance that the image belongs to class 0 (let's say class 0 means that the image contains a dog)
 and a 10% chance that the image belongs to class 1 (image contains a cat). To train the network you compare the resulting probability vector with your ground truth label.
 So, you know that you passed an image with a dog, so your ground truth probability is `[1, 0]`. You compute a loss - a metric that tells how close your resulting probabilities are to ground truth
 probabilities - and then you backpropagate through the network and update the weights proportional to the loss gradient. Engineers have achieved outstanding results with this approach! But can it be applied to RL?
@@ -184,7 +183,7 @@ To get a well-trained policy we should have a dataset, i.e., (state, action) whe
 In our Grid World example, we said a policy could be a simple Python dictionary that stores the best action for every single state. This works for small, simple environments.
 
 But what if the environment is more complex? Imagine a video game where the "state" is the entire screen of pixels. How many possible states are there? Imagine a grayscale screen with resolution 640x640, so each state is represented by a matrix of shape (640, 640).
-In this way, the total number of states is 256^(640*640). Basically, the number of possible states is practically infinite! No machine in the world can store such a big table. 
+In this way, the total number of states is 256^(640*640). Basically, the number of possible states is practically infinite! No machine in the world can store such a big table.
 We need a more powerful and flexible way to represent the policy.
 
 This is where **Neural Networks** come in. Neural networks can approximate our mapping from state to actions, but then we need data to train it. How can we gather data? That is what is behind the CEM algorithm.
@@ -204,22 +203,22 @@ Next, we calculate the total return for each of the 100 episodes. We then sort t
 
 This is the core learning step. We train our policy network using only the state-action pairs from the elite episodes.
 
-Think about it: we now have a collection of "good" decisions. For every state from our top 10 episodes, we have the corresponding action that led to a great outcome (well, not necessarily great, but at least better than the others). 
+Think about it: we now have a collection of "good" decisions. For every state from our top 10 episodes, we have the corresponding action that led to a great outcome (well, not necessarily great, but at least better than the others).
 
 We now go to our neural network and tell it:
 
 > "The actions you took in these specific states were part of a high-scoring game. I want you to increase the probability of choosing these actions again if you find yourself in these states in the future."
 
-So, basically this is our dataset: we have collected (state, action) pairs from the elite episodes and we are going to train our network with that data! Of course nobody is saying that these episodes are the best ones and our policy should learn from them, no. All we are saying that these episodes are "elite", i.e. they are better than other episodes, so please learn from them. 
+So, basically this is our dataset: we have collected (state, action) pairs from the elite episodes and we are going to train our network with that data! Of course nobody is saying that these episodes are the best ones and our policy should learn from them, no. All we are saying that these episodes are "elite", i.e. they are better than other episodes, so please learn from them.
 
 Mathematically, this is done by minimizing the **Cross-Entropy Loss**. You don't need to understand the complex formula behind it to grasp the intuition. Minimizing this loss function is simply a way to force the network's output probabilities to get closer to the "correct" actions we observed in our elite trajectories. Basically, this loss helps to adjust the network's parameters $\theta$ to make our good gameplay more likely.
 
 ### Step 4: Repeat
 
 After training, our policy network is now slightly better - its weights have been updated in the right direction.
-We then repeat the entire process: we use this new, improved policy to generate another 100 episodes, pick the top 10, and retrain on those. 
+We then repeat the entire process: we use this new, improved policy to generate another 100 episodes, pick the top 10, and retrain on those.
 
-Given that our policy hopefully improved in the last step, these episodes should be even better. So, by doing that many times we are moving towards a policy that can achieve the highest return. 
+Given that our policy hopefully improved in the last step, these episodes should be even better. So, by doing that many times we are moving towards a policy that can achieve the highest return.
 
 A crucial difference between reinforcement learning and standard supervised learning (like a cat-dog classifier) is the nature of the training data.
 
@@ -233,11 +232,11 @@ This is the core of the on-policy vs. off-policy trade-off.
 
 - The Case Against Re-using Old Data (On-Policy): On the other hand, the current policy has already learned from that old data; it's now smarter. Why would we want an improved agent to keep learning from actions taken by an older, less capable version of itself? This outdated data is no longer representative of the agent's current skill, and learning from it could slow down convergence or even teach the agent to repeat past mistakes.
 
-For the sake of stability we choose to discard the previously used data. This makes our algorithm less data efficient. Moreover it makes the learning much harder, because our data distribution is not static, it is constantly changing. 
+For the sake of stability we choose to discard the previously used data. This makes our algorithm less data efficient. Moreover it makes the learning much harder, because our data distribution is not static, it is constantly changing.
 
 ---
 
-A small note on how to apply CEM. We discussed here that we apply CEM at the episode level. This means that we collect all (state, action, reward) tuples within one episode and calculate the total reward for that episode. After playing N episodes, we keep only the best 10%, for example. So, we take all (state, action, reward) tuples from these elite episodes and train our policy on them.
+A small note on how to apply CEM. We discussed here that we apply CEM at the episode level. This means that we collect all (state, action, reward) tuples within one episode and calculate the total reward for that episode. After playing N episodes, we keep only the best 10%, for example. So, we take all (state, action) tuples from these elite episodes and train our policy on them.
 
 Alternatively, you can find implementations of CEM at the sample level. This means that instead of waiting to play N episodes, we play one episode and collect (state, action, reward) tuples. Then, we apply filtering on these samples within that episode only. So, we keep the best (state, action, reward) tuples and train on them.
 
@@ -254,7 +253,7 @@ While the Cross-Entropy Method (CEM) is simple and effective for some problems, 
 
 - **Sample Inefficiency:** CEM requires generating and evaluating a large number of episodes in each iteration, which can be computationally expensive and slow, especially in environments where running an episode is costly. This can be partially solved by applying CEM at the sample level.
 - **Poor Exploration:** Since CEM focuses only on the top-performing episodes (the "elite" set), it may quickly converge to suboptimal policies if the initial policy is not diverse enough. This can lead to premature convergence and poor exploration of the environment.
-- **No Credit Assignment:** CEM treats each episode as a whole and does not assign credit to individual actions within an episode. This can be problematic in environments where only some actions are responsible for high rewards. 
+- **No Credit Assignment:** CEM treats each episode as a whole and does not assign credit to individual actions within an episode. This can be problematic in environments where only some actions are responsible for high rewards.
 - **Scalability Issues:** For very large or complex environments, the number of samples needed to find elite episodes grows rapidly, making CEM impractical.
 - **Sparse Rewards:** Imagine that the episode can have a reward only when the final goal is achieved. All previous steps were granted a zero reward, so how do you find the "elite" samples when the mean is zero? In problems where the agent is rewarded only if it won, CEM does not really work well.
 
@@ -341,11 +340,11 @@ The pipeline is quite similar to Cross-Entropy Method we discussed above. Here w
 
 **Quick side note**
 
-A was wondering why ES algorithm was called as an alternative or a rival to RL in OpenAI blog. For me it sounded like ES can be easily classified as an RL algorithm. Because it also involves an agent trying things in an environment with sole purpose of maximizing the total score, which sounds a lot like the definition of reinforcement learning we just discussed. 
+A was wondering why ES algorithm was called as an alternative or a rival to RL in OpenAI blog. For me it sounded like ES can be easily classified as an RL algorithm. Because it also involves an agent trying things in an environment with sole purpose of maximizing the total score, which sounds a lot like the definition of reinforcement learning we just discussed.
 
 I am not 100% sure, but I think that true RL algorithm should care about the correlation between states, actions and future states and future possible rewards. On the contrast, ES and CEM are not doing that. These algorithms just play many episodes and make conclusions based on the final score of each episode. There is no explicit derivation of what was the best action to perform in a given state to maximize the possible future reward of the trajectory. Instead they just observe and change the policies behavior based on the final observation.
 
-So, while both use trial-and-error to maximize rewards, RL dives into the details of the game as it's being played. ES and CEM treats the entire game as a single event and just looks at the final score. This makes it a different, but equally powerful, approach to solving the same kinds of problems. 
+So, while both use trial-and-error to maximize rewards, RL dives into the details of the game as it's being played. ES and CEM treats the entire game as a single event and just looks at the final score. This makes it a different, but equally powerful, approach to solving the same kinds of problems.
 
 I mean you should probably not care about this subtle difference, it does not play a big difference, all of the approaches work and nobody cares whether it is RL or something else. This sidenote was written just to present my thoughts for people who might be interested :)
 
@@ -381,7 +380,7 @@ This approach focuses on behavioral diversity rather than just optimizing reward
 
 **The Idea:** Instead of only chasing high scores, the algorithm rewards novel behaviors. A policy's fitness is determined by how different its behavior is from previously discovered behaviors, often combined with traditional reward-based fitness. This encourages exploration of diverse strategies.
 
-**Why it's useful:** This prevents getting stuck in local optima and can discover unexpected solutions. For example, in a maze, traditional RL might find one path to the exit and stick with it. Novelty search would encourage finding multiple different paths, potentially discovering better routes. 
+**Why it's useful:** This prevents getting stuck in local optima and can discover unexpected solutions. For example, in a maze, traditional RL might find one path to the exit and stick with it. Novelty search would encourage finding multiple different paths, potentially discovering better routes.
 
 **Important Note:** Modern novelty search often combines novelty with objective-based fitness rather than completely ignoring rewards.
 
