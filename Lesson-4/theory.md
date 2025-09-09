@@ -1,5 +1,55 @@
 # Introduction to RL. Part 4. Policy Gradient.
 
+## Table of Contents
+
+1. [Theory](#theory)
+   - [Stochastic vs Deterministic](#stochastic-vs-deterministic)
+   - [Policy Gradient](#policy-gradient)
+     - [Objective Function](#objective-function)
+     - [Deriving ∇_θ J(θ)](#deriving-∇_θ-jθ)
+   - [Building the intuition](#building-the-intuition)
+     - [Digesting ∇_θ log π_θ(a_t | s_t)](#digesting-∇_θ-log-π_θa_t--s_t)
+     - [Objective vs Loss](#objective-vs-loss)
+
+2. [REINFORCE algorithm](#reinforce-algorithm)
+   - [Practical details](#practical-details)
+     - [Normalization](#normalization)
+     - [Entropy Exploration](#entropy-exploration)
+       - [Adding Entropy to the Objective Function](#adding-entropy-to-the-objective-function)
+
+3. [Actor Critic](#actor-critic)
+   - [Why does baseline help and why it does not affect the overall objective function](#why-does-baseline-help-and-why-it-does-not-affect-the-overall-objective-function)
+   - [How to compute b(s_t)](#how-to-compute-bs_t)
+   - [Advantage Actor-Critic](#advantage-actor-critic)
+
+4. [N-step return](#n-step-return)
+   - [Practical Implementation](#practical-implementation)
+
+5. [A3C](#a3c)
+   - [Why A3C works](#why-a3c-works)
+   - [On-Policy vs Off-Policy](#on-policy-vs-off-policy)
+   - [A2C and A3C](#a2c-and-a3c)
+
+6. [A2C](#a2c)
+   - [Phase 1: The Rollout](#phase-1-the-rollout)
+   - [Phase 2: The Update](#phase-2-the-update)
+
+7. [Policy Update Stability](#policy-update-stability)
+   - [Early Attempts to Control Update Size: Trust Regions](#early-attempts-to-control-update-size-trust-regions)
+   - [Simplicity and Stability: PPO](#simplicity-and-stability-ppo)
+   - [Proximal Policy Optimization](#proximal-policy-optimization)
+     - [PPO's sample efficiency](#ppos-sample-efficiency)
+     - [Importance Sampling](#importance-sampling)
+     - [Gradient of surrogate loss function](#gradient-of-surrogate-loss-function)
+     - [PPO's safe policy update rule](#ppos-safe-policy-update-rule)
+     - [How J_CLIP(θ) actually works?](#how-j_clipθ-actually-works)
+     - [Final Loss](#final-loss)
+   - [PPO Implementation Details](#ppo-implementation-details)
+
+8. [Conclusion](#conclusion)
+
+---
+
 We have studied a significant portion of Reinforcement Learning (RL) where we focused on Value-Based Learning. This name originates from the fact that our learning process primarily revolved around estimating the action-value function $Q(s,a)$. Using these estimates, we could then derive a policy (typically a greedy or $\epsilon$-greedy policy), where for any given state $s$, we would choose the action corresponding to the highest $Q(s,a)$ value. So, although we were implicitly arriving at a optimal policy, we weren't learning the policy parameters directly. This chapter of RL explores how we can use policies and more importantly how we can improve them.
 
 One key advantage of directly learning a policy is that it can learn truly stochastic policies, which can be optimal in certain situations.
@@ -1410,4 +1460,50 @@ So, if you have a problem and you want to apply some RL to see how it goes, then
 
 # Conclusion
 
-Policy gradient algorithms represent a powerful tool in our arsenal. In contrast to value-based methods (RAINBOW), policy gradients learn the optimal policy directly.
+What a journey this has been! We started this chapter asking a simple question: "What if, instead of learning action-values and deriving a policy from them, we learned the policy directly?" And look where that innocent curiosity led us - from the elegant mathematical foundation of the Policy Gradient Theorem all the way to the sophisticated engineering marvel that is PPO!
+
+Let me take a step back and marvel at the beautiful progression we've witnessed. We began with REINFORCE - conceptually pure but practically challenging due to its high variance. "Okay," we said, "let's add a baseline to reduce this variance." That led us to Actor-Critic methods, where we cleverly borrowed the critic from our value-based past to help the actor learn more stable updates.
+
+But then we got greedy (in a good way!). "Why wait for full episodes when we can learn step-by-step?" N-step returns and GAE entered the picture, giving us that sweet spot between bias and variance. And when we thought we were done optimizing, along came the Naruto-inspired A3C with its army of parallel workers, followed by the more GPU-friendly A2C that synchronized everything beautifully.
+
+Just when we thought we had mastered policy gradients, we hit the stability wall. Those destructive policy updates were like a reminder that "with great power comes great responsibility." TRPO tried to solve this with mathematical rigor, but then PPO came along and said, "Hey, what if we just... clip things?" Sometimes the simplest solutions are the most elegant!
+
+The most fascinating part? PPO managed to thread the needle between being on-policy (for stability) and off-policy (for sample efficiency) through the magic of importance sampling. It's like having your cake and eating it too - you get the sample efficiency benefits of reusing data while maintaining the theoretical soundness of on-policy learning within carefully controlled bounds.
+
+Throughout this entire journey, we've seen how each algorithm builds upon the insights of its predecessors. The baseline from Actor-Critic, the parallel environments from A3C, the importance sampling ratios for data reuse, the clipping mechanism for stability - they all come together in PPO like pieces of a perfectly designed puzzle.
+
+**Key Takeaways from Our Policy Gradient Adventure:**
+
+1. **The Policy Gradient Theorem is pure magic** - the fact that we can optimize an expected reward by moving in the direction of $\nabla_\theta \log \pi_\theta(a_t | s_t)$ scaled by return still gives me chills!
+
+2. **Baselines are your best friend** - they reduce variance without introducing bias. The mathematical proof that they don't affect the expected gradient is one of those "beautiful math moments" that makes you appreciate the elegance of the theory.
+
+3. **Sample efficiency vs. stability is the eternal trade-off** - but algorithms like PPO show us that with clever design, we don't always have to choose between them.
+
+4. **Implementation details matter tremendously** - advantage normalization, gradient clipping, learning rate annealing, proper network initialization... these aren't afterthoughts, they're essential ingredients that can make or break your algorithm.
+
+5. **Stochastic policies have their place** - while they might seem scary (what if the agent drives into a tree?), they can be optimal in adversarial settings and provide natural exploration mechanisms.
+
+6. **The marriage of theory and practice** - we've seen how mathematical insights (like the log-derivative trick) lead to practical algorithms, and how practical concerns (like GPU efficiency) reshape theoretical approaches.
+
+**Policy Gradients vs. Value-Based Methods - The Final Showdown:**
+
+Now, you might wonder: when should you choose policy gradients over value-based methods like DQN? Here's my take:
+
+- **Choose Policy Gradients when** you need stochastic policies, have continuous action spaces, want natural exploration, or are dealing with adversarial settings. PPO is your go-to friend here.
+
+- **Choose Value-Based Methods when** sample efficiency is paramount, you have discrete actions, or you're working with deterministic environments where exploration is less crucial.
+
+But honestly? The field is moving toward hybrid approaches. Actor-Critic methods already combine both worlds, and newer algorithms like SAC (which we'll explore in the next lesson!) take this integration even further.
+
+**Looking Forward:**
+
+The principles we've learned in this chapter - policy optimization, importance sampling, clipping for stability, parallel data collection - these aren't just academic concepts. They form the backbone of modern RL systems. From OpenAI's game-playing agents to Google's robotics research, policy gradient methods are powering some of the most impressive AI achievements we see today.
+
+But we're not done yet! The policy gradient story continues in our next lesson where we'll explore algorithms for continuous control - DDPG, TD3, and SAC. These methods take everything we've learned about policy gradients and extend them to handle continuous action spaces, where the action isn't just "left or right" but could be "apply exactly 2.7 Newtons of force at a 43-degree angle."
+
+The adventure continues, and trust me, it only gets more exciting from here!
+
+Remember: every time you see an AI system smoothly controlling a robotic arm, playing a complex strategy game, or optimizing a trading strategy, there's a good chance that somewhere deep in its algorithm, there's a policy gradient quietly doing its magic - taking actions, observing rewards, and nudging those probabilities in just the right direction to make the impossible look effortless.
+
+That's the power of learning policies directly. That's the beauty of policy gradients. And now, that knowledge is yours to wield!

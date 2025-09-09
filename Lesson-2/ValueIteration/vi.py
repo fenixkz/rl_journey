@@ -1,9 +1,7 @@
-import gymnasium as gym
 import numpy as np
 from ttt import TicTacToeEnv
 
 # Define the env
-env = gym.make("FrozenLake-v1", desc=None, map_name="8x8", is_slippery=True)
 env = TicTacToeEnv()
 
 # Get number of states (8x8=64)

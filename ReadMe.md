@@ -13,6 +13,8 @@ This repository provides an **intuitive and practical introduction to Reinforcem
 - 📊 **Results and visualizations** showing algorithm performance
 - 🔄 **Progressive learning path** from simple to advanced methods
 
+> Please read `theory.md` using good MarkDown interpreter, vscode does a good joob parsing markdown files. Native github parsing is not fully compatible.
+
 ## Who is this for?
 
 - **Students** learning RL for the first time
@@ -182,14 +184,16 @@ The repository is structured as a 5-lesson progression, each building on the pre
 │
 ├── Lesson-4/           # Policy Gradient Methods
 │   ├── theory.md
-│   └── SPG/           # Stochastic Policy Gradient methods
-│       ├── REINFORCE/
-│       ├── AAC/       # Advantage Actor-Critic
-│       ├── A2C/       # Asynchronous AC
-│       └── PPO/       # Proximal Policy Optimization
+│   ├── REINFORCE/
+│   ├── AAC/       # Advantage Actor-Critic
+│   ├── A2C/       # Asynchronous AC
+│   └── PPO/       # Proximal Policy Optimization
 │
 └── Lesson-5/           # Advanced Policy Methods
-    └── theory.md       # DPG, DDPG, TD3, SAC theory
+│   └── theory.md
+│   ├── DDPG/           # Deep Deterministic Policy Gradient
+│   ├── TD3/            # Twin Delayed Deep Deterministic Policy Gradient
+|   ├── SAC/            # Soft Actor-Critic
 ```
 
 ## What Makes This Different?
@@ -199,24 +203,6 @@ The repository is structured as a 5-lesson progression, each building on the pre
 3. **Progression Matters:** Each lesson builds naturally on previous concepts
 4. **Real Results:** Every algorithm includes training results and performance plots
 5. **Modern Relevance:** Covers algorithms actually used in practice today
-
-## 📊 Algorithms & Performance
-
-| Algorithm | Type | Best For | Sample Efficiency | Stability |
-|-----------|------|----------|------------------|-----------|
-| CEM | Black-box | Simple problems | ⭐⭐ | ⭐⭐⭐ |
-| Q-Learning | Value-based | Discrete actions | ⭐⭐⭐ | ⭐⭐ |
-| DQN | Value-based | Discrete + Images | ⭐⭐⭐ | ⭐⭐⭐ |
-| RAINBOW | Value-based | Discrete + Complex | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| PPO | Policy-based | General purpose | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| SAC | Policy-based | Continuous control | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-
-## Tested Environments
-
-- **Classic Control:** CartPole, Acrobot, LunarLander
-- **Discrete Environments:** Taxi, Custom GridWorlds
-- **Atari Games:** Pong, Breakout, SpaceInvaders
-- **Continuous Control:** (Theory covered, implementations welcome!)
 
 ## Contributing
 
