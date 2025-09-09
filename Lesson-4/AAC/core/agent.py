@@ -10,7 +10,7 @@ from core.actor_critic import Actor, Critic
 from tqdm import tqdm
 
 current_path = os.path.dirname(__file__)
-parent_path = os.path.join(current_path, "../../../../")
+parent_path = os.path.join(current_path, "../../../")
 sys.path.append(os.path.abspath(parent_path))
 
 from common.base_agent import BaseAgent  # noqa: E402

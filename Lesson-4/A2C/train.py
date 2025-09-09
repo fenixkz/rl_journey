@@ -8,7 +8,7 @@ from core.agent import A2CAgent
 from rich.console import Console
 
 current_path = os.path.dirname(__file__)
-parent_path = os.path.join(current_path, "../../../")
+parent_path = os.path.join(current_path, "../../")
 sys.path.append(os.path.abspath(parent_path))
 
 from common.utils.config_utils import get_env_config  # noqa: E402

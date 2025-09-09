@@ -7,20 +7,24 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from core.actor_critic import ActorCriticCNN, ActorCriticFC
-from core.rollout_buffer import RolloutBuffer
 from tqdm import tqdm
 
 current_path = os.path.dirname(__file__)
-parent_path = os.path.join(current_path, "../../../../")
+parent_path = os.path.join(current_path, "../../../")
 sys.path.append(os.path.abspath(parent_path))
 
 from common.base_agent import BaseAgent  # noqa: E402
 from common.utils.atari_utils import get_atari_env  # noqa: E402
 
 
-class PPOAgent(BaseAgent):
+def print_tensor(name, tensor):
+    print(f"{name}: {tensor}")
+    print(f"{name} shape: {tensor.shape}")
+
+
+class A2CAgent(BaseAgent):
     """
-    Proximal Policy Optimization (PPO) with Generalized Advantage Estimate (GAE)
+    Asynchronous Advantage Actor-Critic (A2C) with Generalized Advantage Estimate (GAE)
     """
 
     def __init__(
@@ -40,11 +44,6 @@ class PPOAgent(BaseAgent):
         num_steps: int = 5,
         gae_lambda: float = 0.95,
         tau: float = 0.05,
-        num_mini_batches: int = 4,
-        clip_epsilon: float = 0.2,
-        update_epochs: int = 5,
-        anneal_lr: bool = False,
-        clip_values: bool = False,
     ):
         if is_atari:
             make = get_atari_env
@@ -61,26 +60,18 @@ class PPOAgent(BaseAgent):
         super().__init__(env=env, solved_threshold=solved_threshold, seed=seed)
 
         # --- Hyperparameters ---
+        self.env_id = env_id
+        self.num_envs = num_envs
+        self.gamma = gamma
         self.use_normalization = use_normalization
         self.use_entropy = use_entropy
         self.entropy_coef = entropy_coef
         self.num_steps = num_steps
+        self.gae_lambda = gae_lambda
         self.tau = tau
+        self.is_atari = is_atari
         self.critic_scale = critic_scale
-        self.num_mb = num_mini_batches
-        self.clip_epsilon = clip_epsilon
-        self.update_epochs = update_epochs
-        self.clip_values = clip_values
 
-        # --- Rollout buffer ---
-        self.rollout_buffer = RolloutBuffer(
-            num_steps=num_steps,
-            obs_shape=env.single_observation_space.shape,
-            num_envs=num_envs,
-            device=self.device,
-            gamma=gamma,
-            gae_lambda=gae_lambda,
-        )
         # --- Policy: Actor, Critic --
         if not is_atari:
             self.actor_critic = ActorCriticFC(
@@ -90,7 +81,7 @@ class PPOAgent(BaseAgent):
                 env.single_observation_space.shape[0], env.single_action_space.n, hidden_size
             ).to(self.device)
         else:
-            # CNN version uses a shared backbone
+            # Use a single, unified network
             self.actor_critic = ActorCriticCNN(
                 env.single_observation_space.shape, env.single_action_space.n, hidden_size
             ).to(self.device)
@@ -138,6 +129,40 @@ class PPOAgent(BaseAgent):
         """
         return self.actor_critic.get_value(state)
 
+    @torch.no_grad()
+    def compute_returns_and_advantages(
+        self, rewards: torch.Tensor, dones: torch.Tensor, values: torch.Tensor, next_value: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute returns and advantages using GAE from collected rollout data.
+        Args:
+            next_value: Value for the states after the last rollout step.
+        Returns:
+            returns: N-step returns (targets for the critic).
+            advantages: GAE advantages (weights for the actor).
+        """
+        # Initialize advantages and last gae, shape (N, 1)
+        advantages = torch.zeros_like(values).to(self.device)
+        last_gae_lambda = torch.zeros(self.num_envs).to(self.device)
+
+        # Iterate in reverse order
+        for t in reversed(range(self.num_steps)):
+            # The last element should have next_values computed explicitly
+            if t == self.num_steps - 1:
+                next_vals = next_value
+            else:  # Or get the stored values of next index
+                next_vals = values[t + 1]
+            # If the done is True, then it means that the next state is terminal
+            next_non_terminal = 1.0 - dones[t]
+            # Calculate deltas (td error)
+            delta = rewards[t] + self.gamma * next_vals * next_non_terminal - values[t]
+            # Calculate advantage using GAE
+            advantages[t] = last_gae_lambda = delta + self.gamma * self.gae_lambda * next_non_terminal * last_gae_lambda
+
+        # Total return is Q = A + V
+        returns = advantages + values
+        return returns, advantages
+
     def collect_rollout(self):
         """
         Collects `num_steps` of experience from environment.
@@ -145,10 +170,11 @@ class PPOAgent(BaseAgent):
         # Query the state from the last rollout
         states = self.current_states
 
-        for step in range(self.num_steps):
-            # No need for gradients in PPO, because we re-compute them later
-            with torch.no_grad():
-                action_dist, actions, state_values = self.get_action_value(states)
+        # Lists to store the N step data
+        values_list, logprobs_list, entropies_list, rewards_list, dones_list = [], [], [], [], []
+        for _ in range(self.num_steps):
+            # Actions.shape: (N,)
+            action_dist, actions, state_values = self.get_action_value(states)
             # Step in the environments
             next_states, rewards, terminateds, _, infos = self.env.step(actions.cpu().numpy())
 
@@ -164,85 +190,76 @@ class PPOAgent(BaseAgent):
                     self.train_rewards.append(episode_reward)
 
             # Store data
-            self.rollout_buffer.add(
-                step=step,
-                states=states,
-                actions=actions,
-                logprobs=action_dist.log_prob(actions),
-                rewards=rewards,
-                dones=terminateds,
-                values=state_values.squeeze(),
-            )
-            # Transit
+            logprobs_list.append(action_dist.log_prob(actions))  # Gradient tracked
+            values_list.append(state_values)  # Gradient tracked
+            entropies_list.append(action_dist.entropy())  # Gradient tracked
+            rewards_list.append(rewards)
+            dones_list.append(terminateds)
+
             states = next_states
+
+        # Convert data that does NOT need gradients
+        rewards_t = torch.tensor(np.array(rewards_list), dtype=torch.float32).to(self.device)
+        dones_t = torch.tensor(np.array(dones_list), dtype=torch.float32).to(self.device)
+
+        # Stack tensors that DO need gradients.
+        # torch.stack is a differentiable operation that preserves the computation graph.
+        logprobs_t = torch.stack(logprobs_list)
+        values_t = torch.stack(values_list)
+        entropies_t = torch.stack(entropies_list)
 
         # Save current state for the future rollout
         self.current_states = states
-        # Find the value of the final state (M+1) using the target critic
+
+        # Find the value of the final state using the target critic
         with torch.no_grad():
-            next_values = self.evaluate(states)
-        return next_values.squeeze()
+            # next_values_t = self.online_critic(states)
+            next_values_t = self.evaluate(states)
 
-    def learn(self):
-        # Run a single batch several epochs
-        for _ in range(self.update_epochs):
-            # Now do mini-batch gradient descent
-            for batch in self.rollout_buffer.get_mini_batches(self.num_mb):
-                # Access data directly from the yielded dictionary
-                mb_states = batch["states"]
-                mb_actions = batch["actions"]
-                mb_logprobs = batch["logprobs"]
-                mb_advantages = batch["advantages"]
-                mb_returns = batch["returns"]
-                mb_values = batch["values"]
+        # Calculate returns and advantages
+        returns_t, advantages_t = self.compute_returns_and_advantages(
+            rewards_t, dones_t, values_t.squeeze(), next_values_t.squeeze()
+        )
 
-                # Re-compute logprobs, entropies for states and actions we collected
-                # Additionally, new state-value is computed
-                new_action_dist, _, new_state_values = self.get_action_value(mb_states)
-                new_logprobs = new_action_dist.log_prob(mb_actions)
-                new_entropies = new_action_dist.entropy()
+        return logprobs_t, values_t, entropies_t, returns_t, advantages_t
 
-                # Use logarithm property: r_t = pi_new / pi_old
-                # -> log(r_t) = log(pi_new) - log(pi_old)
-                logratio = new_logprobs - mb_logprobs
-                # r_t = e^(log(r_t))
-                ratio = logratio.exp()
-                if self.use_normalization:  # Note: we do normalization on mini-batch level
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+    def learn(
+        self,
+        logprobs: torch.Tensor,
+        values: torch.Tensor,
+        entropies: torch.Tensor,
+        returns: torch.Tensor,
+        advantages: torch.Tensor,
+    ):
+        # Normalize advantage if specified
+        if self.use_normalization:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
-                # --- Actor Loss ---
-                unclamped_actor_loss = -mb_advantages * ratio
-                clamped_actor_loss = -mb_advantages * torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon)
-                # Use max instead of min because of flipped sign
-                actor_loss = torch.max(unclamped_actor_loss, clamped_actor_loss).mean()
-                if self.use_entropy:
-                    actor_loss -= self.entropy_coef * new_entropies.mean()
+        # Compute losses
+        # Actor loss: -log_prob * A(s, a).
+        # Advantage is detached for actor loss, the gradients must flow only through log_probs
+        actor_loss = -(logprobs * advantages).mean()
 
-                # --- Critic Loss ---
-                # Squeeze last single dim
-                new_state_values = new_state_values.squeeze(-1)
-                # Standard MSE loss
-                if self.clip_values:
-                    critic_loss_unclipped = F.mse_loss(new_state_values, mb_returns)
-                    value_clipped = mb_values + torch.clamp(
-                        new_state_values - mb_values, -self.clip_epsilon, self.clip_epsilon
-                    )
-                    critic_loss_clipped = F.mse_loss(value_clipped, mb_returns)
-                    critic_loss = torch.max(critic_loss_unclipped, critic_loss_clipped)
-                else:
-                    critic_loss = F.mse_loss(new_state_values, mb_returns)
+        # Add entropy to the loss, if specified
+        if self.use_entropy:
+            entropy_loss = self.entropy_coef * entropies.mean()
+            actor_loss -= entropy_loss
 
-                total_loss = actor_loss + self.critic_scale * critic_loss
-                # Zero out the gradients
-                self.optimizer.zero_grad()
-                total_loss.backward()
-                # Clip the gradients for stability
-                torch.nn.utils.clip_grad_norm_(self.actor_critic.parameters(), max_norm=1)
-                # Step the optimizer
-                self.optimizer.step()
+        # Critic loss: L2 between target and state values
+        critic_loss = F.mse_loss(values.squeeze(), returns)
+        total_loss = actor_loss + self.critic_scale * critic_loss
+
+        # Zero out the gradients
+        self.optimizer.zero_grad()
+        total_loss.backward()
+        # Clip the gradients for stability
+        torch.nn.utils.clip_grad_norm_(self.actor_critic.parameters(), max_norm=1)
+        # Step the optimizer
+        self.optimizer.step()
 
     def train(self, max_steps: int = 10000):
         pbar = tqdm(range(max_steps), desc="Training")
+
         states, _ = self.env.reset()
 
         # In the beginning set the initial state
@@ -250,20 +267,13 @@ class PPOAgent(BaseAgent):
         avg_reward = -float("inf")
 
         for e in pbar:
-            # Collect a rollout of N steps in M envs
-            next_values = self.collect_rollout()
-            # Calculate returns and advantages
-            # They are stored inside the buffer
-            self.rollout_buffer.compute_returns_and_advantages(next_values)
-            # PPO update rule
-            self.learn()
-            # Target soft update
+            logprobs, values, entropies, returns, advantages = self.collect_rollout()
+            self.learn(logprobs, values, entropies, returns, advantages)
             self.soft_update_target_network()
-            # Reset the rollout buffer
-            self.rollout_buffer.reset()
-            # Check if we solved the env
+
             if self.train_rewards:
                 avg_reward = np.mean(self.train_rewards[-100:])
+
                 if avg_reward >= self.solved_threshold:
                     pbar.write(f"🎉 Environment solved at episode {e}!")
                     break
