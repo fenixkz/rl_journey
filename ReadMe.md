@@ -109,8 +109,8 @@ The repository is structured as a 5-lesson progression, each building on the pre
 
 **Algorithms Implemented:**
 - [`REINFORCE`](Lesson-4/SPG/REINFORCE/) - The foundation of policy gradients
-- [`Advantage Actor-Critic (A2C)`](Lesson-4/SPG/AAC/) - Reducing variance with baselines
-- [`Asynchronous Advantage Actor-Critic (A3C)`](Lesson-4/SPG/A2C/) - Parallel training
+- [`Advantage Actor-Critic (AAC)`](Lesson-4/SPG/AAC/) - Reducing variance with baselines
+- [`Synchronous Advantage Actor-Critic (A3C)`](Lesson-4/SPG/A2C/) - Parallel training
 - [`Proximal Policy Optimization (PPO)`](Lesson-4/SPG/PPO/) - Safe policy updates
 
 **Environments:** CartPole, LunarLander, Acrobot, Atari games
